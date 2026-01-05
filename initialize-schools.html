@@ -10,14 +10,17 @@
         import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
         // Firebase configuration
+        // IMPORTANT: Replace with your own Firebase config from Firebase Console
+        // Get your config from: Firebase Console → Project Settings → Your apps → Web app
+        // DO NOT commit your actual API keys to the repository!
         const firebaseConfig = {
-            apiKey: "AIzaSyBJQ9_6cgpIi46-ct7rSTKLjbYv8LgiYcA",
-            authDomain: "kirdvahi.firebaseapp.com",
-            projectId: "kirdvahi",
-            storageBucket: "kirdvahi.firebasestorage.app",
-            messagingSenderId: "904603651688",
-            appId: "1:904603651688:web:01f6115b22cae2974d75dd",
-            measurementId: "G-Z1SCTF84SN"
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "YOUR_AUTH_DOMAIN_HERE",
+            projectId: "YOUR_PROJECT_ID_HERE",
+            storageBucket: "YOUR_STORAGE_BUCKET_HERE",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+            appId: "YOUR_APP_ID_HERE",
+            measurementId: "YOUR_MEASUREMENT_ID_HERE"
         };
 
         // Initialize Firebase
@@ -140,10 +143,18 @@
     <div class="container">
         <h1>Initialize Schools in Firebase</h1>
         
-        <div class="warning" style="background-color: #d1f2eb; border-color: #16a085;">
-            <strong>✓ Firebase Configuration Added:</strong> Your Firebase config is already set up. You can now click the button below to initialize schools.
+        <div class="warning" style="background-color: #fff3cd; border-color: #ffc107;">
+            <strong>⚠️ Security Notice:</strong> Before using this tool, you MUST replace the placeholder Firebase configuration with your own credentials.
             <br><br>
-            <strong>Note:</strong> Make sure your Firestore security rules allow writes. If you get permission errors, check your Firebase Console → Firestore Database → Rules.
+            <strong>Steps:</strong>
+            <ol>
+                <li>Go to <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></li>
+                <li>Select your project → Project Settings → Your apps → Web app</li>
+                <li>Copy your Firebase configuration</li>
+                <li>Replace the placeholder values in the <code>firebaseConfig</code> object above</li>
+                <li>Make sure your Firestore security rules allow writes</li>
+            </ol>
+            <strong>⚠️ Never commit your actual API keys to Git!</strong>
         </div>
 
         <p>This script will create 6 schools in your Firebase Firestore database:</p>
