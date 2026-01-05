@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Initialize Schools</title>
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+        import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJQ9_6cgpIi46-ct7rSTKLjbYv8LgiYcA",
+            authDomain: "kirdvahi.firebaseapp.com",
+            projectId: "kirdvahi",
+            storageBucket: "kirdvahi.firebasestorage.app",
+            messagingSenderId: "904603651688",
+            appId: "1:904603651688:web:01f6115b22cae2974d75dd",
+            measurementId: "G-Z1SCTF84SN"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Schools to create
+        const schools = [
+            {
+                name: 'School 1',
+                adminId: 'admin1',
+                adminPassword: 'School1@2024'
+            },
+            {
+                name: 'School 2',
+                adminId: 'admin2',
+                adminPassword: 'School2@2024'
+            },
+            {
+                name: 'School 3',
+                adminId: 'admin3',
+                adminPassword: 'School3@2024'
+            },
+            {
+                name: 'School 4',
+                adminId: 'admin4',
+                adminPassword: 'School4@2024'
+            },
+            {
+                name: 'School 5',
+                adminId: 'admin5',
+                adminPassword: 'School5@2024'
+            },
+            {
+                name: 'School 6',
+                adminId: 'admin6',
+                adminPassword: 'School6@2024'
+            }
+        ];
+
+        async function initializeSchools() {
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                statusDiv.innerHTML = '<p style="color: blue;">Initializing schools...</p>';
+                resultsDiv.innerHTML = '';
+
+                for (const school of schools) {
+                    try {
+                        const docRef = await addDoc(collection(db, 'schools'), school);
+                        resultsDiv.innerHTML += `<p style="color: green;">✓ Created: ${school.name} (ID: ${docRef.id})</p>`;
+                    } catch (error) {
+                        resultsDiv.innerHTML += `<p style="color: red;">✗ Error creating ${school.name}: ${error.message}</p>`;
+                    }
+                }
+
+                statusDiv.innerHTML = '<p style="color: green; font-weight: bold;">All schools initialized!</p>';
+            } catch (error) {
+                statusDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                console.error('Error:', error);
+            }
+        }
+
+        // Make function available globally
+        window.initializeSchools = initializeSchools;
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #status, #results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Initialize Schools in Firebase</h1>
+        
+        <div class="warning" style="background-color: #d1f2eb; border-color: #16a085;">
+            <strong>✓ Firebase Configuration Added:</strong> Your Firebase config is already set up. You can now click the button below to initialize schools.
+            <br><br>
+            <strong>Note:</strong> Make sure your Firestore security rules allow writes. If you get permission errors, check your Firebase Console → Firestore Database → Rules.
+        </div>
+
+        <p>This script will create 6 schools in your Firebase Firestore database:</p>
+        <ul>
+            <li>School 1 (admin1 / School1@2024)</li>
+            <li>School 2 (admin2 / School2@2024)</li>
+            <li>School 3 (admin3 / School3@2024)</li>
+            <li>School 4 (admin4 / School4@2024)</li>
+            <li>School 5 (admin5 / School5@2024)</li>
+            <li>School 6 (admin6 / School6@2024)</li>
+        </ul>
+
+        <button onclick="initializeSchools()">Initialize Schools</button>
+
+        <div id="status"></div>
+        <div id="results"></div>
+    </div>
+</body>
+</html>
+
