@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useSchool, School } from '../contexts/SchoolContext';
-import { Building2, ChevronDown } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Building2, ChevronDown, Lock } from 'lucide-react';
 import { schoolService } from '../services/schoolService';
 
 const SchoolHeader: React.FC = () => {
   const { selectedSchool, selectSchool } = useSchool();
+  const { isAdmin } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +58,7 @@ const SchoolHeader: React.FC = () => {
 
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm print:hidden">
-      <div className="container mx-auto px-4 py-2">
+      <div className="container mx-auto px-4 py-2 flex items-center justify-between">
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsOpen(!isOpen)}
@@ -94,6 +97,15 @@ const SchoolHeader: React.FC = () => {
             </div>
           )}
         </div>
+        {!isAdmin && (
+          <Link
+            to="/admin/login"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+          >
+            <Lock className="w-4 h-4" />
+            Admin Login
+          </Link>
+        )}
       </div>
     </div>
   );

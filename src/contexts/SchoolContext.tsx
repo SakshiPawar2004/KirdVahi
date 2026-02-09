@@ -19,26 +19,27 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
 
   useEffect(() => {
-    // Load selected school from localStorage
-    const savedSchool = localStorage.getItem('selected_school');
+    // Load selected school from sessionStorage (cleared when browser closes)
+    // This ensures school selection page shows every time the app is opened
+    const savedSchool = sessionStorage.getItem('selected_school');
     if (savedSchool) {
       try {
         setSelectedSchool(JSON.parse(savedSchool));
       } catch (error) {
-        console.error('Error loading school from localStorage:', error);
-        localStorage.removeItem('selected_school');
+        console.error('Error loading school from sessionStorage:', error);
+        sessionStorage.removeItem('selected_school');
       }
     }
   }, []);
 
   const selectSchool = (school: School) => {
     setSelectedSchool(school);
-    localStorage.setItem('selected_school', JSON.stringify(school));
+    sessionStorage.setItem('selected_school', JSON.stringify(school));
   };
 
   const clearSchool = () => {
     setSelectedSchool(null);
-    localStorage.removeItem('selected_school');
+    sessionStorage.removeItem('selected_school');
     // Also clear admin session when school is cleared
     localStorage.removeItem('admin_session');
     localStorage.removeItem('admin_school_id');

@@ -591,6 +591,22 @@ const EntryPage: React.FC = () => {
   };
 
 
+  if (!selectedSchool) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
+          <p className="text-gray-600 marathi-font mb-4">कृपया प्रथम शाळा निवडा</p>
+          <Link
+            to="/"
+            className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-lg inline-block"
+          >
+            शाळा निवडा
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
@@ -614,17 +630,12 @@ const EntryPage: React.FC = () => {
       
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
-        {/* School Header Section */}
-        <div className="school-header-section marathi-font">
-          टी झेड पवार माध्यमिक विद्यालय गोराणे ता. बागलाण जि. नाशिक
-          </div>
-        
         {/* Main Header Section */}
         <div className="main-header-section print:hidden">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <Link 
-                to="/" 
+                to="/home" 
                 className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />

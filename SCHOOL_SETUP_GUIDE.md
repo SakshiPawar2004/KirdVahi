@@ -33,7 +33,7 @@ You need to create 6 school documents in the `schools` collection in Firebase Fi
 
 ### School Document Structure
 
-- `name` (string): The name of the school (e.g., "शाळा 1", "School 1")
+- `name` (string): The name of the school (e.g., "टी झेड पवार माध्यमिक विद्यालय गोराणे ता बागलाण जि नाशिक")
 - `adminId` (string): Unique admin username for this school
 - `adminPassword` (string): Admin password for this school
 
@@ -49,7 +49,7 @@ You need to create 6 school documents in the `schools` collection in Firebase Fi
    - Document ID: Leave empty (Firebase will auto-generate) OR use a custom ID like `school1`
    - Add fields:
      ```
-     name: "शाळा 1" (or "School 1")
+     name: "टी झेड पवार माध्यमिक विद्यालय गोराणे ता बागलाण जि नाशिक"
      adminId: "admin1" (unique username)
      adminPassword: "password1" (secure password)
      ```
@@ -73,32 +73,32 @@ const db = admin.firestore();
 
 const schools = [
   {
-    name: 'शाळा 1',
+    name: 'टी झेड पवार माध्यमिक विद्यालय गोराणे ता बागलाण जि नाशिक',
     adminId: 'admin1',
     adminPassword: 'password1'
   },
   {
-    name: 'शाळा 2',
+    name: 'माध्यमिक विद्यालय नांदीन ता बागलाण जि नाशिक',
     adminId: 'admin2',
     adminPassword: 'password2'
   },
   {
-    name: 'शाळा 3',
+    name: 'शि म भा हिरे विद्यालय पिंपळगांव ता मालेगांव जि नाशिक',
     adminId: 'admin3',
     adminPassword: 'password3'
   },
   {
-    name: 'शाळा 4',
+    name: 'शि म भा हिरे विद्यालय व कनिष्ठ महाविद्यालय पिंपळगांव ता मालेगांव जि नाशिक',
     adminId: 'admin4',
     adminPassword: 'password4'
   },
   {
-    name: 'शाळा 5',
+    name: 'समाजकल्याण विभाग मुलांचे वस्तीगृह पिंपळगांव ता मालेगांव जि नाशिक',
     adminId: 'admin5',
     adminPassword: 'password5'
   },
   {
-    name: 'शाळा 6',
+    name: 'तरूण मित्र मंडळ पिंपळगांव ता मालेगांव जि नाशिक',
     adminId: 'admin6',
     adminPassword: 'password6'
   }
@@ -135,12 +135,12 @@ Here's an example of 6 schools you can create:
 
 | School Name | Admin ID | Admin Password |
 |------------|----------|----------------|
-| शाळा 1 | admin1 | School1@2024 |
-| शाळा 2 | admin2 | School2@2024 |
-| शाळा 3 | admin3 | School3@2024 |
-| शाळा 4 | admin4 | School4@2024 |
-| शाळा 5 | admin5 | School5@2024 |
-| शाळा 6 | admin6 | School6@2024 |
+| टी झेड पवार माध्यमिक विद्यालय गोराणे ता बागलाण जि नाशिक | admin1 | School1@2024 |
+| माध्यमिक विद्यालय नांदीन ता बागलाण जि नाशिक | admin2 | School2@2024 |
+| शि म भा हिरे विद्यालय पिंपळगांव ता मालेगांव जि नाशिक | admin3 | School3@2024 |
+| शि म भा हिरे विद्यालय व कनिष्ठ महाविद्यालय पिंपळगांव ता मालेगांव जि नाशिक | admin4 | School4@2024 |
+| समाजकल्याण विभाग मुलांचे वस्तीगृह पिंपळगांव ता मालेगांव जि नाशिक | admin5 | School5@2024 |
+| तरूण मित्र मंडळ पिंपळगांव ता मालेगांव जि नाशिक | admin6 | School6@2024 |
 
 **Important**: Change these passwords to secure, unique passwords in production!
 

@@ -138,7 +138,7 @@ npm run preview
 
 ### For Administrators
 
-1. **Admin Login**: Go to `http://localhost:5173/admin/login`
+1. **Admin Login**: Go to `http://localhost:5173/home/admin`
 2. **Login Credentials**:
    - Username: `admin`
    - Password: `admin123`

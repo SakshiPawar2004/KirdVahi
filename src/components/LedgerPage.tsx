@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useSchool } from '../contexts/SchoolContext';
 import { ArrowLeft, FileText, Printer, Edit3, Trash2, Download, Wifi, WifiOff, Save, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { accountsFirebase, entriesFirebase, Account, Entry, handleFirebaseError } from '../services/firebaseService';
@@ -51,7 +50,6 @@ const LedgerPage: React.FC = () => {
     amount: ''
   });
   const { isAdmin, logout } = useAuth();
-  const { selectedSchool } = useSchool();
   
   // Monitor online/offline status
   useEffect(() => {
@@ -69,10 +67,8 @@ const LedgerPage: React.FC = () => {
 
   // Load entries and accounts from Firebase
   useEffect(() => {
-    if (selectedSchool) {
-      loadData();
-    }
-  }, [id, selectedSchool]);
+    loadData();
+  }, [id]);
 
   // Reload data when coming back to this page (to get updated account names)
   useEffect(() => {
@@ -94,14 +90,13 @@ const LedgerPage: React.FC = () => {
     };
   }, []);
   const loadData = async () => {
-    if (!id || !selectedSchool) return;
+    if (!id) return;
     
     try {
       setError(null);
-      setLoading(true);
       
       // Load accounts
-      const accountsData = await accountsFirebase.getAll(selectedSchool.id);
+      const accountsData = await accountsFirebase.getAll();
       const accountMap: { [key: string]: string } = {};
       accountsData.forEach((acc) => {
         accountMap[acc.khateNumber] = acc.name;
@@ -109,12 +104,10 @@ const LedgerPage: React.FC = () => {
       setAccounts(accountMap);
       
       // Load entries for this account
-      const entriesData = await entriesFirebase.getByAccount(selectedSchool.id, id);
+      const entriesData = await entriesFirebase.getByAccount(id);
       setEntries(entriesData);
-      setLoading(false);
     } catch (err) {
       setError(handleFirebaseError(err));
-      setLoading(false);
       console.error('Error loading data:', err);
     }
   };
@@ -188,10 +181,9 @@ const LedgerPage: React.FC = () => {
       return;
     }
     
-    if (!selectedSchool) return;
     if (editingEntry && editFormData.date && editFormData.accountNumber && editFormData.details && editFormData.amount) {
       try {
-        await entriesFirebase.update(selectedSchool.id, editingEntry.id!, {
+        await entriesFirebase.update(editingEntry.id!, {
           date: editFormData.date,
           accountNumber: editFormData.accountNumber,
           receiptNumber: editFormData.receiptNumber || '',
@@ -232,10 +224,9 @@ const LedgerPage: React.FC = () => {
       return;
     }
     
-    if (!selectedSchool) return;
     if (confirm('क्या आपण या नोंदी काढून टाकाल? या क्रिया आता पुन्हा पुन्हा करण्यास अवघड असेल.')) {
       try {
-        await entriesFirebase.delete(selectedSchool.id, entryId);
+        await entriesFirebase.delete(entryId);
         loadData(); // Reload entries
       } catch (err) {
         alert('नोंद हटवताना त्रुटी: ' + handleFirebaseError(err));

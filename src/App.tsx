@@ -1,89 +1,57 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import { SchoolProvider } from './contexts/SchoolContext';
 import { AuthProvider } from './contexts/AuthContext';
+import SchoolRouteGuard from './components/SchoolRouteGuard';
 import TableOfContents from './components/TableOfContents';
 import LedgerPage from './components/LedgerPage';
 import EntryPage from './components/EntryPage';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
-import SchoolRouteGuard from './components/SchoolRouteGuard';
 import './App.css';
 
 function App() {
   return (
     <SchoolProvider>
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-amber-50">
-          <Routes>
-              <Route 
-                path="/" 
-                element={
-                  <SchoolRouteGuard>
-                    <TableOfContents />
-                  </SchoolRouteGuard>
-                } 
-              />
-              <Route 
-                path="/ledger/:id" 
-                element={
-                  <SchoolRouteGuard>
-                    <LedgerPage />
-                  </SchoolRouteGuard>
-                } 
-              />
-              <Route 
-                path="/entry" 
-                element={
-                  <SchoolRouteGuard>
-                    <EntryPage />
-                  </SchoolRouteGuard>
-                } 
-              />
-              <Route 
-                path="/admin/login" 
-                element={
-                  <SchoolRouteGuard>
-                    <AdminLogin />
-                  </SchoolRouteGuard>
-                } 
-              />
-            <Route 
-              path="/admin" 
-              element={
-                  <SchoolRouteGuard>
-                <ProtectedRoute>
-                  <AdminDashboard />
-                </ProtectedRoute>
-                  </SchoolRouteGuard>
-              } 
-            />
-            <Route 
-              path="/admin/entry" 
-              element={
-                  <SchoolRouteGuard>
-                <ProtectedRoute>
-                  <EntryPage />
-                </ProtectedRoute>
-                  </SchoolRouteGuard>
-              } 
-            />
-            <Route 
-              path="/admin/accounts" 
-              element={
-                  <SchoolRouteGuard>
-                <ProtectedRoute>
-                  <TableOfContents />
-                </ProtectedRoute>
-                  </SchoolRouteGuard>
-              } 
-            />
-          </Routes>
-        </div>
-      </Router>
-    </AuthProvider>
+      <AuthProvider>
+        <Router>
+          <div className="min-h-screen bg-amber-50">
+            <Routes>
+              <Route element={<SchoolRouteGuard><Outlet /></SchoolRouteGuard>}>
+                <Route path="/" element={<TableOfContents />} />
+                <Route path="/ledger/:id" element={<LedgerPage />} />
+                <Route path="/entry" element={<EntryPage />} />
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/entry"
+                  element={
+                    <ProtectedRoute>
+                      <EntryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/accounts"
+                  element={
+                    <ProtectedRoute>
+                      <TableOfContents />
+                    </ProtectedRoute>
+                  }
+                />
+              </Route>
+            </Routes>
+          </div>
+        </Router>
+      </AuthProvider>
     </SchoolProvider>
   );
 }

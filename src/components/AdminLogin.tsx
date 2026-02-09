@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSchool } from '../contexts/SchoolContext';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
 
@@ -8,19 +9,58 @@ const AdminLogin: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const usernameRef = React.useRef<HTMLInputElement>(null);
+  const passwordRef = React.useRef<HTMLInputElement>(null);
+  const { login, isAdmin } = useAuth();
+  const { selectedSchool, clearSchool } = useSchool();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // If admin is already logged in (even for a different school), redirect to home
+    const adminSession = localStorage.getItem('admin_session');
+    if (adminSession === 'true' && !isAdmin) {
+      // Admin logged in for different school - redirect to viewer mode
+      navigate('/', { replace: true });
+    } else if (isAdmin) {
+      // Admin logged in for current school - redirect to admin dashboard
+      navigate('/admin', { replace: true });
+    }
+  }, [isAdmin, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (login(username, password)) {
+    // Read from refs so we get current value even if state didn't update (e.g. browser autofill)
+    const usernameValue = (usernameRef.current?.value ?? username).trim();
+    const passwordValue = passwordRef.current?.value ?? password;
+    if (!usernameValue || !passwordValue) {
+      setError('Please enter username and password.');
+      return;
+    }
+    const ok = await login(usernameValue, passwordValue);
+    if (ok) {
       navigate('/admin');
     } else {
-      setError('Invalid credentials');
+      setError('Invalid credentials. Use Admin ID as username and password.');
     }
   };
+
+  if (!selectedSchool) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center">
+          <h1 className="text-xl font-bold text-gray-800 mb-2">Select school first</h1>
+          <p className="text-gray-600 mb-6">Please select a school from the home page, then open Admin Login again.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+          >
+            Go to school selection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
@@ -39,12 +79,15 @@ const AdminLogin: React.FC = () => {
               Username
             </label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               <input
+                ref={usernameRef}
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                onInput={(e) => setUsername((e.target as HTMLInputElement).value)}
                 required
+                autoComplete="username"
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter username"
               />
@@ -56,12 +99,15 @@ const AdminLogin: React.FC = () => {
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               <input
+                ref={passwordRef}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onInput={(e) => setPassword((e.target as HTMLInputElement).value)}
                 required
+                autoComplete="current-password"
                 className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter password"
               />
@@ -91,7 +137,26 @@ const AdminLogin: React.FC = () => {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => {
+              // Clear only school selection to show school selection page
+              // Preserve admin session so admin stays logged in when they select school again
+              const adminSession = localStorage.getItem('admin_session');
+              const adminSchoolId = localStorage.getItem('admin_school_id');
+              
+              // Clear school selection
+              sessionStorage.removeItem('selected_school');
+              
+              // Clear school from context state
+              clearSchool();
+              
+              // Restore admin session (clearSchool clears it, so restore if it existed)
+              if (adminSession && adminSchoolId) {
+                localStorage.setItem('admin_session', adminSession);
+                localStorage.setItem('admin_school_id', adminSchoolId);
+              }
+              
+              navigate('/', { replace: true });
+            }}
             className="text-blue-600 hover:text-blue-700 text-sm"
           >
             ← Back to Main Application

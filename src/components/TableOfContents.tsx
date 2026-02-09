@@ -25,6 +25,7 @@ interface TableOfContentsProps {
 }
 
 const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = false }) => {
+  const { selectedSchool } = useSchool();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +37,6 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
   const [editAccountNumber, setEditAccountNumber] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { isAdmin, logout } = useAuth();
-  const { selectedSchool } = useSchool();
 
   // Monitor online/offline status
   useEffect(() => {
@@ -56,20 +56,22 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
   useEffect(() => {
     if (selectedSchool) {
       loadAccounts();
+    } else {
+      setError('कृपया प्रथम शाळा निवडा.');
     }
   }, [selectedSchool]);
 
   const loadAccounts = async () => {
-    if (!selectedSchool) return;
     try {
       setError(null);
-      setLoading(true);
+      if (!selectedSchool) {
+        setError('कृपया प्रथम शाळा निवडा.');
+        return;
+      }
       const accountsData = await accountsFirebase.getAll(selectedSchool.id);
       setAccounts(accountsData);
-      setLoading(false);
     } catch (err) {
       setError(handleFirebaseError(err));
-      setLoading(false);
       console.error('Error loading accounts:', err);
     }
   };
@@ -89,8 +91,11 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
         return;
       }
       
-      if (!selectedSchool) return;
       try {
+        if (!selectedSchool) {
+          alert('कृपया प्रथम शाळा निवडा.');
+          return;
+        }
         await accountsFirebase.create(selectedSchool.id, {
           khateNumber: newAccountNumber.trim(),
           name: newAccountName.trim()
@@ -134,8 +139,11 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
         }
       }
       
-      if (!selectedSchool) return;
       try {
+        if (!selectedSchool) {
+          alert('कृपया प्रथम शाळा निवडा.');
+          return;
+        }
         await accountsFirebase.update(selectedSchool.id, editingAccount, { 
           name: editAccountName.trim(),
           khateNumber: editAccountNumber.trim()
@@ -165,9 +173,12 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
       return;
     }
     
-    if (!selectedSchool) return;
     if (confirm('या खात्याला हटवायचे आहे का?')) {
       try {
+        if (!selectedSchool) {
+          alert('कृपया प्रथम शाळा निवडा.');
+          return;
+        }
         await accountsFirebase.delete(selectedSchool.id, account.id!, account.khateNumber);
         loadAccounts(); // Reload accounts
       } catch (err) {
@@ -207,9 +218,12 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
       return;
     }
 
-    if (!selectedSchool) return;
     try {
       // Load all entries from Firebase
+      if (!selectedSchool) {
+        alert('कृपया प्रथम शाळा निवडा.');
+        return;
+      }
       const allEntries = await entriesFirebase.getAll(selectedSchool.id);
       
       if (allEntries.length === 0) {
@@ -343,11 +357,6 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
       
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
-        {/* School Header Section */}
-        <div className="school-header-section marathi-font">
-          {selectedSchool?.name || 'शाळा'}
-        </div>
-        
         {/* Main Header Section - Only show for non-admin users */}
         {!isAdmin && (
           <div className="main-header-section print:hidden">
@@ -490,25 +499,6 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
             <div className="text-center py-12 text-gray-500">
               <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-xl font-semibold marathi-font mb-2">कोणतेही खाते उपलब्ध नाही</h3>
-              <p className="text-gray-400 english-font mb-4">Please add accounts to get started</p>
-              <button
-                onClick={() => {
-                  if (!isOnline) {
-                    alert('इंटरनेट कनेक्शन नाही! कृपया ऑनलाइन येऊन पुन्हा प्रयत्न करा.');
-                    return;
-                  }
-                  setShowAddForm(true);
-                }}
-                disabled={!isOnline}
-                className={`px-6 py-3 rounded-lg font-medium english-font transition-colors inline-flex items-center gap-2 ${
-                  isOnline 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                    : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                }`}
-              >
-                <Plus className="w-5 h-5" />
-                पहिले खाते जोडा
-              </button>
             </div>
           ) : (
             <>

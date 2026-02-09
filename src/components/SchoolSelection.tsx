@@ -22,9 +22,14 @@ const SchoolSelection: React.FC = () => {
       setError(null);
       const schoolsData = await schoolService.getAll();
       setSchools(schoolsData);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading schools:', err);
-      setError('शाळा लोड करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
+      // Check if it's a Firebase configuration error
+      if (err?.message?.includes('Firebase') || err?.code === 'failed-precondition') {
+        setError('Firebase कॉन्फिगरेशन त्रुटी. कृपया .env फाइल तपासा आणि Firebase सेटिंग्ज व्हेरिफाई करा.');
+      } else {
+        setError('शाळा लोड करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
+      }
     } finally {
       setLoading(false);
     }
@@ -37,10 +42,19 @@ const SchoolSelection: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center">
-        <div className="text-center">
+      <div 
+        className="min-h-screen flex items-center justify-center relative"
+        style={{
+          backgroundImage: "url('/classroom.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+        <div className="relative z-10 text-center bg-white bg-opacity-90 backdrop-blur-sm rounded-lg p-8 shadow-xl">
           <Loader2 className="w-12 h-12 text-amber-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">शाळा लोड होत आहे...</p>
+          <p className="text-gray-800 font-medium">शाळा लोड होत आहे...</p>
         </div>
       </div>
     );
@@ -48,8 +62,17 @@ const SchoolSelection: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+      <div 
+        className="min-h-screen flex items-center justify-center relative px-4"
+        style={{
+          backgroundImage: "url('/classroom.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+        <div className="relative z-10 bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-xl p-8 max-w-md w-full">
           <div className="text-center">
             <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <SchoolIcon className="w-8 h-8 text-red-600" />
@@ -69,16 +92,29 @@ const SchoolSelection: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div 
+      className="min-h-screen py-12 px-4 relative"
+      style={{
+        backgroundImage: "url('/classroom.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Dark overlay for content visibility */}
+      <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+      
+      {/* Content container with backdrop blur for better readability */}
+      <div className="relative z-10 max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <div className="bg-amber-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="bg-white bg-opacity-90 backdrop-blur-sm w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Building2 className="w-10 h-10 text-amber-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
             शाळा निवडा
           </h1>
-          <p className="text-gray-600">
+          <p className="text-white text-lg drop-shadow-md">
             कृपया आपली शाळा निवडा
           </p>
         </div>
@@ -91,7 +127,7 @@ const SchoolSelection: React.FC = () => {
               <button
                 key={school.id}
                 onClick={() => handleSelectSchool(school)}
-                className="bg-white rounded-lg shadow-md hover:shadow-xl p-8 text-center transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-amber-500 flex items-center justify-center"
+                className="bg-white bg-opacity-95 backdrop-blur-sm rounded-lg shadow-lg hover:shadow-2xl p-8 text-center transition-all duration-200 hover:scale-105 border-2 border-white hover:border-amber-400 flex items-center justify-center"
               >
                 <h3 className="text-2xl font-bold text-gray-800">
                   {school.name}

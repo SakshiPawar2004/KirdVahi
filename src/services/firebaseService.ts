@@ -32,11 +32,19 @@ export interface Entry {
   createdAt?: Timestamp | Date;
 }
 
+// Ensure Firestore is initialized
+const ensureDb = () => {
+  if (!db) {
+    throw new Error('Firebase is not initialized. कृपया .env मध्ये Firebase सेटिंग तपासा.');
+  }
+  return db;
+};
+
 // Helper functions to get school-specific collections
 const getAccountsCollection = (schoolId: string) => 
-  collection(db, 'schools', schoolId, 'accounts');
+  collection(ensureDb(), 'schools', schoolId, 'accounts');
 const getEntriesCollection = (schoolId: string) => 
-  collection(db, 'schools', schoolId, 'entries');
+  collection(ensureDb(), 'schools', schoolId, 'entries');
 
 // Account operations
 export const accountsFirebase = {
@@ -94,7 +102,7 @@ export const accountsFirebase = {
   // Update account
   update: async (schoolId: string, id: string, updates: Partial<Account>): Promise<void> => {
     try {
-      const accountRef = doc(db, 'schools', schoolId, 'accounts', id);
+      const accountRef = doc(ensureDb(), 'schools', schoolId, 'accounts', id);
       await updateDoc(accountRef, updates);
     } catch (error) {
       console.error('Error updating account:', error);
@@ -114,12 +122,12 @@ export const accountsFirebase = {
       
       // Delete all related entries
       const deletePromises = entriesSnapshot.docs.map(entryDoc => 
-        deleteDoc(doc(db, 'schools', schoolId, 'entries', entryDoc.id))
+        deleteDoc(doc(ensureDb(), 'schools', schoolId, 'entries', entryDoc.id))
       );
       await Promise.all(deletePromises);
 
       // Then delete the account
-      await deleteDoc(doc(db, 'schools', schoolId, 'accounts', id));
+      await deleteDoc(doc(ensureDb(), 'schools', schoolId, 'accounts', id));
     } catch (error) {
       console.error('Error deleting account:', error);
       throw error;
@@ -237,7 +245,7 @@ export const entriesFirebase = {
   // Update entry
   update: async (schoolId: string, id: string, updates: Partial<Entry>): Promise<void> => {
     try {
-      const entryRef = doc(db, 'schools', schoolId, 'entries', id);
+      const entryRef = doc(ensureDb(), 'schools', schoolId, 'entries', id);
       await updateDoc(entryRef, updates);
     } catch (error) {
       console.error('Error updating entry:', error);
@@ -248,7 +256,7 @@ export const entriesFirebase = {
   // Delete entry
   delete: async (schoolId: string, id: string): Promise<void> => {
     try {
-      await deleteDoc(doc(db, 'schools', schoolId, 'entries', id));
+      await deleteDoc(doc(ensureDb(), 'schools', schoolId, 'entries', id));
     } catch (error) {
       console.error('Error deleting entry:', error);
       throw error;

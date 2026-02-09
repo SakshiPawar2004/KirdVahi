@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, FirebaseApp } from "firebase/app";
+import { getAnalytics, Analytics } from "firebase/analytics";
+import { getFirestore, Firestore } from "firebase/firestore";
 
 // Firebase configuration using environment variables
 const firebaseConfig = {
@@ -26,21 +26,34 @@ const requiredEnvVars = [
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !import.meta.env[envVar]);
 
-if (missingEnvVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-}
-
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app: FirebaseApp | null = null;
+let db: Firestore | null = null;
+let analytics: Analytics | undefined = undefined;
 
-// Initialize Analytics only if measurementId is provided
-let analytics;
-if (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) {
-  analytics = getAnalytics(app);
+try {
+  if (missingEnvVars.length === 0) {
+    app = initializeApp(firebaseConfig);
+    // Initialize Analytics only if measurementId is provided
+    if (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) {
+      try {
+        analytics = getAnalytics(app);
+      } catch (analyticsError) {
+        console.warn('Analytics initialization failed:', analyticsError);
+      }
+    }
+    // Initialize Firestore
+    db = getFirestore(app);
+  } else {
+    console.warn(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+    console.warn('Please check your .env file and ensure all Firebase configuration variables are set.');
+    console.warn('The app will still load, but Firebase features may not work.');
+  }
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
+  console.error('The app will still render, but Firebase operations will fail.');
 }
-
-// Initialize Firestore
-const db = getFirestore(app);
 
 // Export the initialized services
+// Note: db and analytics may be null if initialization failed
 export { db, analytics };
