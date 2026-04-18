@@ -357,6 +357,10 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
       
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
+        <div className="school-header-section marathi-font text-amber-700 hidden print:block">
+          {selectedSchool?.name || 'टी झेड पवार माध्यमिक विद्यालय गोराणे  ता. बागलाण जि. नाशिक'}
+        </div>
+
         {/* Main Header Section - Only show for non-admin users */}
         {!isAdmin && (
           <div className="main-header-section print:hidden">
@@ -506,7 +510,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:grid-cols-2 print:gap-1">
                 {/* Left Column */}
                 <div>
-                  <div className="bg-amber-500 text-white p-3 rounded-t-lg print:bg-gray-100 print:text-black print:rounded-none print:p-0.5">
+                  <div className="bg-amber-500 text-white p-3 rounded-t-lg print:rounded-none print:p-0.5">
                     <div className="grid grid-cols-12 gap-2 font-semibold text-sm marathi-font print:text-[6px] print:gap-1">
                       <div className="col-span-3 print:col-span-2">खाते नं.</div>
                       <div className="col-span-7 print:col-span-8">नाव</div>
@@ -556,7 +560,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
                           <div className="grid grid-cols-12 gap-2 p-3 text-sm print:p-0.5 print:text-[5px] print:gap-1 print:leading-tight">
                             <div className="col-span-3 font-medium text-amber-700 english-font print:col-span-2">{account.khateNumber}</div>
                             <div className={`${isAdmin ? 'col-span-7' : 'col-span-9'} text-gray-800 marathi-font hover:text-amber-700 transition-colors ${isAdmin ? 'print:col-span-8' : 'print:col-span-10'}`}>
-                              <Link to={`/admin/entry?accountNumber=${encodeURIComponent(account.khateNumber)}`} className="block print:no-underline">
+                              <Link to={`/admin/ledger/${encodeURIComponent(account.khateNumber)}`} className="block print:no-underline">
                                 {account.name}
                               </Link>
                             </div>
@@ -595,7 +599,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
 
                 {/* Right Column */}
                 <div className="print:page-break-before-always">
-                  <div className="bg-amber-500 text-white p-3 rounded-t-lg print:bg-gray-100 print:text-black print:rounded-none print:p-0.5">
+                  <div className="bg-amber-500 text-white p-3 rounded-t-lg print:rounded-none print:p-0.5">
                     <div className="grid grid-cols-12 gap-2 font-semibold text-sm marathi-font print:text-[6px] print:gap-1">
                       <div className="col-span-3 print:col-span-2">खाते नं.</div>
                       <div className="col-span-7 print:col-span-8">नाव</div>
@@ -645,7 +649,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
                           <div className="grid grid-cols-12 gap-2 p-3 text-sm print:p-0.5 print:text-[5px] print:gap-1 print:leading-tight">
                             <div className="col-span-3 font-medium text-amber-700 english-font print:col-span-2">{account.khateNumber}</div>
                             <div className={`${isAdmin ? 'col-span-7' : 'col-span-9'} text-gray-800 marathi-font hover:text-amber-700 transition-colors ${isAdmin ? 'print:col-span-8' : 'print:col-span-10'}`}>
-                              <Link to={`/admin/entry?accountNumber=${encodeURIComponent(account.khateNumber)}`} className="block print:no-underline">
+                              <Link to={`/admin/ledger/${encodeURIComponent(account.khateNumber)}`} className="block print:no-underline">
                                 {account.name}
                               </Link>
                             </div>

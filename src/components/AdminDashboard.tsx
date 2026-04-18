@@ -15,7 +15,7 @@ const AdminDashboard: React.FC = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         {/* Admin Actions */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8 print:hidden">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button

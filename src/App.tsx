@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import SchoolRouteGuard from './components/SchoolRouteGuard';
 import TableOfContents from './components/TableOfContents';
 import EntryPage from './components/EntryPage';
+import LedgerPage from './components/LedgerPage';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -40,6 +41,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <TableOfContents />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/ledger/:id"
+                  element={
+                    <ProtectedRoute>
+                      <LedgerPage />
                     </ProtectedRoute>
                   }
                 />

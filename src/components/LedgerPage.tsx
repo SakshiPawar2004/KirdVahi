@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useSchool } from '../contexts/SchoolContext';
 import { ArrowLeft, FileText, Printer, Edit3, Trash2, Download, Wifi, WifiOff, Save, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { accountsFirebase, entriesFirebase, Account, Entry, handleFirebaseError } from '../services/firebaseService';
@@ -50,6 +51,7 @@ const LedgerPage: React.FC = () => {
     amount: ''
   });
   const { isAdmin, logout } = useAuth();
+  const { selectedSchool } = useSchool();
   
   // Monitor online/offline status
   useEffect(() => {
@@ -68,7 +70,7 @@ const LedgerPage: React.FC = () => {
   // Load entries and accounts from Firebase
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, [id, selectedSchool]);
 
   // Reload data when coming back to this page (to get updated account names)
   useEffect(() => {
@@ -91,12 +93,16 @@ const LedgerPage: React.FC = () => {
   }, []);
   const loadData = async () => {
     if (!id) return;
+    if (!selectedSchool) {
+      setError('कृपया प्रथम शाळा निवडा.');
+      return;
+    }
     
     try {
       setError(null);
       
       // Load accounts
-      const accountsData = await accountsFirebase.getAll();
+      const accountsData = await accountsFirebase.getAll(selectedSchool.id);
       const accountMap: { [key: string]: string } = {};
       accountsData.forEach((acc) => {
         accountMap[acc.khateNumber] = acc.name;
@@ -104,7 +110,7 @@ const LedgerPage: React.FC = () => {
       setAccounts(accountMap);
       
       // Load entries for this account
-      const entriesData = await entriesFirebase.getByAccount(id);
+      const entriesData = await entriesFirebase.getByAccount(selectedSchool.id, id);
       setEntries(entriesData);
     } catch (err) {
       setError(handleFirebaseError(err));
@@ -181,9 +187,14 @@ const LedgerPage: React.FC = () => {
       return;
     }
     
+    if (!selectedSchool) {
+      alert('कृपया प्रथम शाळा निवडा.');
+      return;
+    }
+
     if (editingEntry && editFormData.date && editFormData.accountNumber && editFormData.details && editFormData.amount) {
       try {
-        await entriesFirebase.update(editingEntry.id!, {
+        await entriesFirebase.update(selectedSchool.id, editingEntry.id!, {
           date: editFormData.date,
           accountNumber: editFormData.accountNumber,
           receiptNumber: editFormData.receiptNumber || '',
@@ -224,9 +235,14 @@ const LedgerPage: React.FC = () => {
       return;
     }
     
+    if (!selectedSchool) {
+      alert('कृपया प्रथम शाळा निवडा.');
+      return;
+    }
+
     if (confirm('क्या आपण या नोंदी काढून टाकाल? या क्रिया आता पुन्हा पुन्हा करण्यास अवघड असेल.')) {
       try {
-        await entriesFirebase.delete(entryId);
+        await entriesFirebase.delete(selectedSchool.id, entryId);
         loadData(); // Reload entries
       } catch (err) {
         alert('नोंद हटवताना त्रुटी: ' + handleFirebaseError(err));
@@ -309,8 +325,8 @@ const LedgerPage: React.FC = () => {
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
         {/* School Header Section */}
-        <div className="school-header-section marathi-font">
-          टी झेड पवार माध्यमिक विद्यालय गोराणे  ता. बागलाण जि. नाशिक
+        <div className="school-header-section marathi-font text-amber-700">
+          {selectedSchool?.name || 'टी झेड पवार माध्यमिक विद्यालय गोराणे  ता. बागलाण जि. नाशिक'}
         </div>
         
         {/* Main Header Section */}
@@ -318,7 +334,7 @@ const LedgerPage: React.FC = () => {
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <Link 
-                to="/" 
+                to="/admin/accounts" 
                 className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -368,7 +384,7 @@ const LedgerPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8 print:px-2 print:py-2">
         {/* Print-only Account Name Header */}
         <div className="hidden print:block text-center mb-4">
-          <h2 className="text-lg font-bold marathi-font">{id}. {accountName}</h2>
+          <h2 className="text-lg font-bold marathi-font text-amber-700">{id}. {accountName}</h2>
         </div>
         
         {/* Edit Entry Modal */}
@@ -535,7 +551,7 @@ const LedgerPage: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm print:text-base border border-black print-table-fixed">
                 <thead>
-                  <tr className="bg-amber-600 text-white print:bg-gray-100 print:text-black">
+                  <tr className="bg-amber-600 text-white">
                     <th className="p-2 text-center marathi-font border border-black align-middle print-date-col">तारीख</th>
                     <th className="p-2 text-center marathi-font border border-black align-middle print-kird-pan-col">किर्द पान नं.</th>
                     <th className="p-2 text-center marathi-font border border-black align-middle print-details-col">तपशील</th>
@@ -616,7 +632,7 @@ const LedgerPage: React.FC = () => {
         {/* Navigation */}
         <div className="mt-6 flex justify-center print:hidden">
           <Link 
-            to="/" 
+            to="/admin/accounts" 
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium english-font transition-colors flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />

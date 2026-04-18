@@ -661,6 +661,10 @@ const EntryPage: React.FC = () => {
       
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
+        <div className="school-header-section marathi-font text-amber-700">
+          {selectedSchool?.name || 'टी झेड पवार माध्यमिक विद्यालय गोराणे  ता. बागलाण जि. नाशिक'}
+        </div>
+
         {/* Main Header Section */}
         <div className="main-header-section print:hidden">
           <div className="container mx-auto px-4">
@@ -1263,7 +1267,7 @@ const EntryPage: React.FC = () => {
               <table className="w-full text-sm print:text-base table-fixed print:table-auto border border-black entry-table">
                 <thead>
                   {/* Sub Headers */}
-                  <tr className="bg-amber-500 text-white print:bg-gray-50 print:text-black">
+                  <tr className="bg-amber-500 text-white">
                     <th className="p-1 text-left marathi-font border border-black date-column text-center align-middle">तारीख</th>
                     <th className="p-1 text-left marathi-font border border-black account-column text-center align-middle">खाते नं.</th>
                     <th className="p-1 text-left marathi-font border border-black receipt-column text-center align-middle">पावती नं.</th>
