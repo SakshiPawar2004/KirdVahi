@@ -141,7 +141,7 @@ npm run preview
 1. **Admin Login**: Go to `http://localhost:5173/home/admin`
 2. **Login Credentials**:
    - Username: `admin`
-   - Password: `admin123`
+   - Password: `admin1`
 3. **Admin Features**:
    - Add new accounts
    - Add जमा/नावे entries

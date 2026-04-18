@@ -7,33 +7,33 @@
 const schools = [
     {
         name: 'टी झेड पवार माध्यमिक विद्यालय गोराणे ता बागलाण जि नाशिक',
-        adminId: 'admin1',
-        adminPassword: 'School1@2024'
+        adminId: '27200105403',
+        adminPassword: '27200105403'
     },
     {
         name: 'माध्यमिक विद्यालय नांदीन ता बागलाण जि नाशिक',
-        adminId: 'admin2',
-        adminPassword: 'School2@2024'
+        adminId: '27200111502',
+        adminPassword: '27200111502'
     },
     {
         name: 'शि म भा हिरे विद्यालय पिंपळगांव ता मालेगांव जि नाशिक',
-        adminId: 'admin3',
-        adminPassword: 'School3@2024'
+        adminId: '27200710202',
+        adminPassword: '27200710202'
     },
     {
         name: 'शि म भा हिरे विद्यालय व कनिष्ठ महाविद्यालय पिंपळगांव ता मालेगांव जि नाशिक',
-        adminId: 'admin4',
-        adminPassword: 'School4@2024'
+        adminId: '27200710203',
+        adminPassword: '27200710203'
     },
     {
         name: 'समाजकल्याण विभाग मुलांचे वस्तीगृह पिंपळगांव ता मालेगांव जि नाशिक',
-        adminId: 'admin5',
-        adminPassword: 'School5@2024'
+        adminId: '27200710204',
+        adminPassword: '27200710204'
     },
     {
         name: 'तरूण मित्र मंडळ पिंपळगांव ता मालेगांव जि नाशिक',
-        adminId: 'admin6',
-        adminPassword: 'School6@2024'
+        adminId: '27200710205',
+        adminPassword: '27200710205'
     }
 ];
 

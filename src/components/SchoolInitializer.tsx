@@ -196,7 +196,7 @@ const SchoolInitializer: React.FC = () => {
                             <p className="text-sm text-gray-500 mt-4 text-center">
                                 <strong>Note:</strong> After initialization, use Admin ID as both username and password.
                                 <br />
-                                Example: First school → Username: <code>27200105403</code>, Password: <code>27200105403</code>
+                                Example: Use the school's Admin ID for both Username and Password.
                             </p>
                         )}
                     </div>
