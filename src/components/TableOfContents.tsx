@@ -402,7 +402,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
           {isAdmin && (
             <div className="text-center mb-6 flex flex-wrap gap-4 justify-center print:hidden">
               <Link
-                to="/entry"
+                to="/admin/entry"
                 className={`px-6 py-3 rounded-lg font-medium marathi-font transition-colors inline-flex items-center gap-2 ${
                   isOnline 
                     ? 'bg-green-600 hover:bg-green-700 text-white' 
@@ -556,7 +556,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
                           <div className="grid grid-cols-12 gap-2 p-3 text-sm print:p-0.5 print:text-[5px] print:gap-1 print:leading-tight">
                             <div className="col-span-3 font-medium text-amber-700 english-font print:col-span-2">{account.khateNumber}</div>
                             <div className={`${isAdmin ? 'col-span-7' : 'col-span-9'} text-gray-800 marathi-font hover:text-amber-700 transition-colors ${isAdmin ? 'print:col-span-8' : 'print:col-span-10'}`}>
-                              <Link to={`/ledger/${account.khateNumber}`} className="block print:no-underline">
+                              <Link to={`/admin/entry?accountNumber=${encodeURIComponent(account.khateNumber)}`} className="block print:no-underline">
                                 {account.name}
                               </Link>
                             </div>
@@ -645,7 +645,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
                           <div className="grid grid-cols-12 gap-2 p-3 text-sm print:p-0.5 print:text-[5px] print:gap-1 print:leading-tight">
                             <div className="col-span-3 font-medium text-amber-700 english-font print:col-span-2">{account.khateNumber}</div>
                             <div className={`${isAdmin ? 'col-span-7' : 'col-span-9'} text-gray-800 marathi-font hover:text-amber-700 transition-colors ${isAdmin ? 'print:col-span-8' : 'print:col-span-10'}`}>
-                              <Link to={`/ledger/${account.khateNumber}`} className="block print:no-underline">
+                              <Link to={`/admin/entry?accountNumber=${encodeURIComponent(account.khateNumber)}`} className="block print:no-underline">
                                 {account.name}
                               </Link>
                             </div>
@@ -712,7 +712,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
           {!isAdmin && (
             <div className="mt-8 text-center print:hidden">
               <Link
-                to="/entry"
+                to="/admin/entry"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-medium marathi-font transition-colors inline-flex items-center gap-3 text-lg"
               >
                 <FileText className="w-6 h-6" />

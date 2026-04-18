@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSchool } from '../contexts/SchoolContext';
 import { ArrowLeft, Save, X, BookOpen, Printer, Edit3, Trash2, Plus, Download, Wifi, WifiOff } from 'lucide-react';
@@ -56,6 +56,10 @@ const EntryPage: React.FC = () => {
   });
   const { isAdmin, logout } = useAuth();
   const { selectedSchool } = useSchool();
+  const [searchParams] = useSearchParams();
+  const prefilledAccountAppliedRef = useRef(false);
+
+  const prefilledAccountNumber = (searchParams.get('accountNumber') || '').trim();
 
   // Monitor online/offline status
   useEffect(() => {
@@ -92,6 +96,33 @@ const EntryPage: React.FC = () => {
       window.removeEventListener('accountNameUpdated', handleAccountUpdate);
     };
   }, [selectedSchool]);
+
+  useEffect(() => {
+    if (!prefilledAccountNumber || prefilledAccountAppliedRef.current) {
+      return;
+    }
+
+    const accountName = accounts[prefilledAccountNumber];
+    if (!accountName) {
+      return;
+    }
+
+    const detailsWithName = `${accountName}\n`;
+
+    setJamaFormData(prev => ({
+      ...prev,
+      accountNumber: prefilledAccountNumber,
+      details: prev.details || detailsWithName
+    }));
+
+    setNaveFormData(prev => ({
+      ...prev,
+      accountNumber: prefilledAccountNumber,
+      details: prev.details || detailsWithName
+    }));
+
+    prefilledAccountAppliedRef.current = true;
+  }, [prefilledAccountNumber, accounts]);
 
   const loadData = async () => {
     if (!selectedSchool) return;
