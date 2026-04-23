@@ -9,17 +9,32 @@ import AdminHeader from './AdminHeader';
 import { formatDate, formatDateForFilename } from '../utils/dateUtils';
 
 // Helper to highlight account name at start of details
-const highlightAccountName = (details: string, accounts: { [key: string]: string }) => {
+const highlightAccountName = (details: string, accounts: { [key: string]: string }): React.ReactNode => {
   if (!details) return details;
   // Find if details starts with any account name
   const found = Object.values(accounts).find(name => details.startsWith(name));
   if (found) {
     // Remove any colons or spaces after the account name
     let rest = details.slice(found.length).replace(/^[:\s]+/, '');
-    // Add a single colon
-    return <span><span style={{color:'#1d4ed8', fontWeight:'bold'}}>{found}:</span>{rest ? ' ' + rest : ''}</span>;
+    return (
+      <span className="block">
+        <span style={{ color: '#1d4ed8', fontWeight: 'bold', display: 'block' }}>{found}:</span>
+        {rest ? <span className="block mt-1">{rest}</span> : null}
+      </span>
+    );
   }
   return details;
+};
+
+const renderAmountWithBreak = (amount: number) => {
+  const [wholePart, decimalPart] = amount.toFixed(2).split('.');
+
+  return (
+    <span>
+      {wholePart}
+      <span className="entry-amount-break">.{decimalPart}</span>
+    </span>
+  );
 };
 
 const EntryPage: React.FC = () => {
@@ -661,7 +676,7 @@ const EntryPage: React.FC = () => {
       
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
-        <div className="school-header-section marathi-font text-amber-700">
+        <div className="school-header-section entry-school-header marathi-font text-white">
           {selectedSchool?.name || 'टी झेड पवार माध्यमिक विद्यालय गोराणे  ता. बागलाण जि. नाशिक'}
         </div>
 
@@ -1346,7 +1361,7 @@ const EntryPage: React.FC = () => {
                               )}
                             </td>
                             <td className="p-1 text-right font-medium english-font border border-black amount-column">
-                              {jamaEntry ? `${formatAmount(jamaEntry.amount)}` : ''}
+                              {jamaEntry ? renderAmountWithBreak(jamaEntry.amount) : ''}
                             </td>
                             
                             {/* नावे side columns */}
@@ -1391,7 +1406,7 @@ const EntryPage: React.FC = () => {
                               )}
                             </td>
                             <td className="p-1 text-right font-medium english-font border border-black amount-column">
-                              {naveEntry ? `${formatAmount(naveEntry.amount)}` : ''}
+                              {naveEntry ? renderAmountWithBreak(naveEntry.amount) : ''}
                             </td>
                           </tr>
                         );
@@ -1408,13 +1423,13 @@ const EntryPage: React.FC = () => {
                               एकूण:
                             </td>
                             <td className="p-2 text-right english-font border border-black">
-                              {formatAmount(dailyJamaTotal)}
+                              {renderAmountWithBreak(dailyJamaTotal)}
                             </td>
                             <td colSpan={4} className="p-2 text-right marathi-font border border-black">
                               एकूण:
                             </td>
                             <td className="p-2 text-right english-font border border-black">
-                              {formatAmount(dailyNaveTotal)}
+                              {renderAmountWithBreak(dailyNaveTotal)}
                             </td>
                           </tr>
                         );
@@ -1432,7 +1447,7 @@ const EntryPage: React.FC = () => {
                               शिल्लक:
                             </td>
                             <td className="p-2 text-right english-font border border-black">
-                              {formatAmount(Math.abs(dailyBalance))}
+                              {renderAmountWithBreak(Math.abs(dailyBalance))}
                             </td>
                           </tr>
                         );

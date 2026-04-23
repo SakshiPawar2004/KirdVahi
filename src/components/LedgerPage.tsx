@@ -325,7 +325,7 @@ const LedgerPage: React.FC = () => {
       {/* Combined Header with School Building Background */}
       <div className="combined-header shadow-lg print:shadow-none">
         {/* School Header Section */}
-        <div className="school-header-section marathi-font text-amber-700">
+        <div className="school-header-section entry-school-header marathi-font text-white">
           {selectedSchool?.name || 'टी झेड पवार माध्यमिक विद्यालय गोराणे  ता. बागलाण जि. नाशिक'}
         </div>
         

@@ -9,6 +9,11 @@
   font-size: 14px;
 }
 
+/* Entry table amount suffix should wrap to the next line on screen */
+.entry-amount-break {
+  display: block;
+}
+
 .ledger-border {
   border: 2px solid #92400e;
 }
@@ -142,6 +147,10 @@
   .school-header-section {
     color: #c2410c !important;
     font-weight: 700 !important;
+  }
+
+  .entry-school-header {
+    color: #dc2626 !important;
   }
   
   /* Hide delete buttons during print */
@@ -337,6 +346,10 @@
   
   .print\\:text-lg {
     font-size: 16px !important;
+  }
+
+  .entry-amount-break {
+    display: block !important;
   }
   
   .print\\:w-3 {
