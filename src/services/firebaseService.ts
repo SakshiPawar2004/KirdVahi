@@ -2,6 +2,7 @@
 import { 
   collection, 
   doc, 
+  getDoc,
   getDocs, 
   addDoc, 
   updateDoc, 
@@ -9,10 +10,12 @@ import {
   query, 
   where, 
   orderBy,
+  writeBatch,
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { accountNumbersMatch, normalizeAccountNumber, replaceAccountNamePrefix } from '../utils/accountUtils';
 
 export interface Account {
   id?: string;
@@ -72,10 +75,12 @@ export const accountsFirebase = {
   // Create new account
   create: async (schoolId: string, account: Omit<Account, 'id' | 'createdAt'>): Promise<Account> => {
     try {
+      const normalizedAccountNumber = normalizeAccountNumber(account.khateNumber);
+
       // Check if account number already exists
       const q = query(
         getAccountsCollection(schoolId), 
-        where('khateNumber', '==', account.khateNumber)
+        where('khateNumber', '==', normalizedAccountNumber)
       );
       const existingAccounts = await getDocs(q);
       
@@ -85,6 +90,7 @@ export const accountsFirebase = {
 
       const docRef = await addDoc(getAccountsCollection(schoolId), {
         ...account,
+        khateNumber: normalizedAccountNumber,
         createdAt: serverTimestamp()
       });
 
@@ -102,8 +108,53 @@ export const accountsFirebase = {
   // Update account
   update: async (schoolId: string, id: string, updates: Partial<Account>): Promise<void> => {
     try {
-      const accountRef = doc(ensureDb(), 'schools', schoolId, 'accounts', id);
-      await updateDoc(accountRef, updates);
+      const dbInstance = ensureDb();
+      const accountRef = doc(dbInstance, 'schools', schoolId, 'accounts', id);
+      const accountSnapshot = await getDoc(accountRef);
+
+      if (!accountSnapshot.exists()) {
+        throw new Error('Account not found');
+      }
+
+      const currentAccount = accountSnapshot.data() as Account;
+      const updatedKhateNumber = updates.khateNumber ? normalizeAccountNumber(updates.khateNumber) : currentAccount.khateNumber;
+      const updatedName = updates.name ? updates.name.trim() : currentAccount.name;
+      const accountNumberChanged = !accountNumbersMatch(currentAccount.khateNumber, updatedKhateNumber);
+      const accountNameChanged = updatedName !== currentAccount.name;
+
+      const batch = writeBatch(dbInstance);
+      batch.update(accountRef, {
+        ...updates,
+        khateNumber: updatedKhateNumber,
+        name: updatedName
+      });
+
+      if (accountNumberChanged || accountNameChanged) {
+        const entriesSnapshot = await getDocs(getEntriesCollection(schoolId));
+
+        entriesSnapshot.forEach((entryDoc) => {
+          const currentEntry = entryDoc.data() as Entry;
+          if (!accountNumbersMatch(currentEntry.accountNumber, currentAccount.khateNumber)) {
+            return;
+          }
+
+          const entryUpdates: Partial<Entry> = {};
+
+          if (accountNumberChanged) {
+            entryUpdates.accountNumber = updatedKhateNumber;
+          }
+
+          if (accountNameChanged) {
+            entryUpdates.details = replaceAccountNamePrefix(currentEntry.details, currentAccount.name, updatedName);
+          }
+
+          if (Object.keys(entryUpdates).length > 0) {
+            batch.update(doc(dbInstance, 'schools', schoolId, 'entries', entryDoc.id), entryUpdates);
+          }
+        });
+      }
+
+      await batch.commit();
     } catch (error) {
       console.error('Error updating account:', error);
       throw error;
@@ -114,16 +165,12 @@ export const accountsFirebase = {
   delete: async (schoolId: string, id: string, khateNumber: string): Promise<void> => {
     try {
       // First delete all related entries
-      const entriesQuery = query(
-        getEntriesCollection(schoolId),
-        where('accountNumber', '==', khateNumber)
-      );
-      const entriesSnapshot = await getDocs(entriesQuery);
+      const entriesSnapshot = await getDocs(getEntriesCollection(schoolId));
       
       // Delete all related entries
-      const deletePromises = entriesSnapshot.docs.map(entryDoc => 
-        deleteDoc(doc(ensureDb(), 'schools', schoolId, 'entries', entryDoc.id))
-      );
+      const deletePromises = entriesSnapshot.docs
+        .filter(entryDoc => accountNumbersMatch((entryDoc.data() as Entry).accountNumber, khateNumber))
+        .map(entryDoc => deleteDoc(doc(ensureDb(), 'schools', schoolId, 'entries', entryDoc.id)));
       await Promise.all(deletePromises);
 
       // Then delete the account
@@ -176,19 +223,18 @@ export const entriesFirebase = {
   // Get entries by account - simplified query
   getByAccount: async (schoolId: string, accountNumber: string): Promise<Entry[]> => {
     try {
-      // Use only where clause to avoid composite index requirement
-      const q = query(
-        getEntriesCollection(schoolId),
-        where('accountNumber', '==', accountNumber)
-      );
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(getEntriesCollection(schoolId));
       
       const entries: Entry[] = [];
       querySnapshot.forEach((doc) => {
-        entries.push({
+        const entry = {
           id: doc.id,
           ...doc.data()
-        } as Entry);
+        } as Entry;
+
+        if (accountNumbersMatch(entry.accountNumber, accountNumber)) {
+          entries.push(entry);
+        }
       });
       
       // Sort by date first, then by createdAt in memory

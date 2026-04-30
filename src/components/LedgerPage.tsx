@@ -1,26 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSchool } from '../contexts/SchoolContext';
-import { ArrowLeft, FileText, Printer, Edit3, Trash2, Download, Wifi, WifiOff, Save, X } from 'lucide-react';
+import { ArrowLeft, FileText, Printer, Trash2, Download, Save, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { accountsFirebase, entriesFirebase, Account, Entry, handleFirebaseError } from '../services/firebaseService';
+import { accountsFirebase, entriesFirebase, Entry, handleFirebaseError } from '../services/firebaseService';
+import { accountNumbersMatch } from '../utils/accountUtils';
 import AdminHeader from './AdminHeader';
 import { formatDate, formatDateForFilename } from '../utils/dateUtils';
-
-// Helper to highlight account name at start of details
-const highlightAccountName = (details: string, accounts: { [key: string]: string }) => {
-  if (!details) return details;
-  // Find if details starts with any account name
-  const found = Object.values(accounts).find(name => details.startsWith(name));
-  if (found) {
-    // Remove any colons or spaces after the account name
-    let rest = details.slice(found.length).replace(/^[:\s]+/, '');
-    // Add a single colon
-    return <span><span style={{color:'#dc2626', fontWeight:'bold'}}>{found}:</span>{rest ? ' ' + rest : ''}</span>;
-  }
-  return details;
-};
+import { normalizeAccountNumber, resolveCurrentAccountNumber } from '../utils/accountUtils';
 
 // Helper to remove account name from details in LedgerPage
 const stripAccountName = (details: string, accounts: { [key: string]: string }) => {
@@ -39,7 +27,6 @@ const LedgerPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [accounts, setAccounts] = useState<{ [key: string]: string }>({});
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
@@ -50,8 +37,9 @@ const LedgerPage: React.FC = () => {
     details: '',
     amount: ''
   });
-  const { isAdmin, logout } = useAuth();
+  const { isAdmin } = useAuth();
   const { selectedSchool } = useSchool();
+  const navigate = useNavigate();
   
   // Monitor online/offline status
   useEffect(() => {
@@ -79,18 +67,34 @@ const LedgerPage: React.FC = () => {
     };
     
     // Listen for account name updates
-    const handleAccountUpdate = () => {
+    const handleAccountUpdate = (event: Event) => {
+      const accountUpdateEvent = event as CustomEvent<{
+        oldKhateNumber?: string;
+        newKhateNumber?: string;
+      }>;
+
+      const currentLedgerNumber = normalizeAccountNumber(id);
+      const oldKhateNumber = normalizeAccountNumber(accountUpdateEvent.detail?.oldKhateNumber);
+      const newKhateNumber = normalizeAccountNumber(accountUpdateEvent.detail?.newKhateNumber);
+
+      if (oldKhateNumber && newKhateNumber && currentLedgerNumber === oldKhateNumber) {
+        navigate(`/admin/ledger/${encodeURIComponent(newKhateNumber)}`, { replace: true });
+        return;
+      }
+
       loadData();
     };
     
     window.addEventListener('focus', handleFocus);
     window.addEventListener('accountNameUpdated', handleAccountUpdate);
+    window.addEventListener('accountUpdated', handleAccountUpdate);
     
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('accountNameUpdated', handleAccountUpdate);
+      window.removeEventListener('accountUpdated', handleAccountUpdate);
     };
-  }, []);
+  }, [id, navigate, selectedSchool]);
   const loadData = async () => {
     if (!id) return;
     if (!selectedSchool) {
@@ -105,12 +109,24 @@ const LedgerPage: React.FC = () => {
       const accountsData = await accountsFirebase.getAll(selectedSchool.id);
       const accountMap: { [key: string]: string } = {};
       accountsData.forEach((acc) => {
-        accountMap[acc.khateNumber] = acc.name;
+        accountMap[normalizeAccountNumber(acc.khateNumber)] = acc.name;
       });
       setAccounts(accountMap);
       
       // Load entries for this account
-      const entriesData = await entriesFirebase.getByAccount(selectedSchool.id, id);
+      let entriesData = await entriesFirebase.getByAccount(selectedSchool.id, id);
+
+      // Fallback: if no entries found, try scanning all entries and match by details/account name
+      if ((!entriesData || entriesData.length === 0) && accountMap[normalizeAccountNumber(id)]) {
+        const allEntries = await entriesFirebase.getAll(selectedSchool.id);
+        const nameForId = accountMap[normalizeAccountNumber(id)];
+        entriesData = allEntries.filter(e => {
+          if (accountNumbersMatch(e.accountNumber, id)) return true;
+          if (nameForId && e.details && e.details.startsWith(nameForId)) return true;
+          return false;
+        });
+      }
+
       setEntries(entriesData);
     } catch (err) {
       setError(handleFirebaseError(err));
@@ -131,21 +147,13 @@ const LedgerPage: React.FC = () => {
   // Sort entries by date only
   const sortedEntries = [...accountEntries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const accountName = accounts[id || ''] || `खाते नंबर ${id}`;
+  const accountName = accounts[normalizeAccountNumber(id)] || `खाते नंबर ${id}`;
+  const displayAccountNumber = entries[0]
+    ? resolveCurrentAccountNumber(id, entries[0].details, accounts)
+    : normalizeAccountNumber(id);
 
   const handlePrint = () => {
     window.print();
-  };
-
-  const handleEditEntry = (entry: Entry) => {
-    setEditingEntry(entry);
-    setEditFormData({
-      date: entry.date,
-      accountNumber: entry.accountNumber,
-      receiptNumber: entry.receiptNumber || '',
-      details: entry.details,
-      amount: entry.amount.toString()
-    });
   };
 
   const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -153,7 +161,7 @@ const LedgerPage: React.FC = () => {
     
     // Auto-fill details when account number changes
     if (name === 'accountNumber') {
-      const accountName = accounts[value];
+      const accountName = accounts[normalizeAccountNumber(value)];
       setEditFormData(prev => ({
         ...prev,
         [name]: value,
@@ -346,7 +354,7 @@ const LedgerPage: React.FC = () => {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right text-sm english-font">
-                  <div>Account No: {id}</div>
+                  <div>Account No: {displayAccountNumber}</div>
                   <div>Balance: {formatAmount(Math.abs(balance))}</div>
                   {isAdmin && (
                     <div className="flex gap-2 mt-1">
@@ -384,7 +392,7 @@ const LedgerPage: React.FC = () => {
       <div className="container mx-auto px-4 py-8 print:px-2 print:py-2">
         {/* Print-only Account Name Header */}
         <div className="hidden print:block text-center mb-4">
-          <h2 className="text-lg font-bold marathi-font text-amber-700">{id}. {accountName}</h2>
+          <h2 className="text-lg font-bold marathi-font text-amber-700">{displayAccountNumber}. {accountName}</h2>
         </div>
         
         {/* Edit Entry Modal */}
@@ -560,7 +568,7 @@ const LedgerPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedEntries.map((entry, index) => {
+                  {sortedEntries.map((entry) => {
                     return (
                       <tr key={entry.id} className="hover:bg-amber-50 transition-colors border-b print:hover:bg-transparent print:bg-white">
                         <td className="p-2 english-font border border-black text-center align-middle print-date-col print:text-xs">

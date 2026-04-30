@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSchool } from '../contexts/SchoolContext';
-import { ArrowLeft, Save, X, BookOpen, Printer, Edit3, Trash2, Plus, Download, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, Save, X, BookOpen, Printer, Edit3, Trash2, Plus, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { accountsFirebase, entriesFirebase, Account, Entry, handleFirebaseError } from '../services/firebaseService';
+import { accountsFirebase, entriesFirebase, Entry, handleFirebaseError } from '../services/firebaseService';
 import AdminHeader from './AdminHeader';
 import { formatDate, formatDateForFilename } from '../utils/dateUtils';
+import { normalizeAccountNumber, resolveCurrentAccountNumber } from '../utils/accountUtils';
 
 // Helper to highlight account name at start of details
 const highlightAccountName = (details: string, accounts: { [key: string]: string }): React.ReactNode => {
@@ -40,8 +41,6 @@ const renderAmountWithBreak = (amount: number) => {
 const EntryPage: React.FC = () => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [accounts, setAccounts] = useState<{ [key: string]: string }>({});
-  const [accountsList, setAccountsList] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [jamaFormData, setJamaFormData] = useState({
@@ -69,9 +68,9 @@ const EntryPage: React.FC = () => {
     details: '',
     amount: ''
   });
-  const { isAdmin, logout } = useAuth();
+  const { isAdmin } = useAuth();
   const { selectedSchool } = useSchool();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const prefilledAccountAppliedRef = useRef(false);
 
   const prefilledAccountNumber = (searchParams.get('accountNumber') || '').trim();
@@ -99,25 +98,43 @@ const EntryPage: React.FC = () => {
     }
     
     // Listen for account name updates
-    const handleAccountUpdate = () => {
+    const handleAccountUpdate = (event: Event) => {
+      const accountUpdateEvent = event as CustomEvent<{
+        oldKhateNumber?: string;
+        newKhateNumber?: string;
+      }>;
+
+      if (accountUpdateEvent.detail?.oldKhateNumber && accountUpdateEvent.detail?.newKhateNumber) {
+        const currentPrefilledNumber = normalizeAccountNumber(searchParams.get('accountNumber'));
+
+        if (currentPrefilledNumber === normalizeAccountNumber(accountUpdateEvent.detail.oldKhateNumber)) {
+          const nextSearchParams = new URLSearchParams(searchParams);
+          nextSearchParams.set('accountNumber', normalizeAccountNumber(accountUpdateEvent.detail.newKhateNumber));
+          setSearchParams(nextSearchParams, { replace: true });
+          prefilledAccountAppliedRef.current = false;
+        }
+      }
+
       if (selectedSchool) {
         loadData();
       }
     };
     
     window.addEventListener('accountNameUpdated', handleAccountUpdate);
+    window.addEventListener('accountUpdated', handleAccountUpdate);
     
     return () => {
       window.removeEventListener('accountNameUpdated', handleAccountUpdate);
+      window.removeEventListener('accountUpdated', handleAccountUpdate);
     };
-  }, [selectedSchool]);
+  }, [selectedSchool, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!prefilledAccountNumber || prefilledAccountAppliedRef.current) {
       return;
     }
 
-    const accountName = accounts[prefilledAccountNumber];
+    const accountName = accounts[normalizeAccountNumber(prefilledAccountNumber)];
     if (!accountName) {
       return;
     }
@@ -143,24 +160,20 @@ const EntryPage: React.FC = () => {
     if (!selectedSchool) return;
     try {
       setError(null);
-      setLoading(true);
       
       // Load accounts
       const accountsData = await accountsFirebase.getAll(selectedSchool.id);
-      setAccountsList(accountsData);
       const accountMap: { [key: string]: string } = {};
       accountsData.forEach((acc) => {
-        accountMap[acc.khateNumber] = acc.name;
+        accountMap[normalizeAccountNumber(acc.khateNumber)] = acc.name;
       });
       setAccounts(accountMap);
       
       // Load entries
       const entriesData = await entriesFirebase.getAll(selectedSchool.id);
       setEntries(entriesData);
-      setLoading(false);
     } catch (err) {
       setError(handleFirebaseError(err));
-      setLoading(false);
       console.error('Error loading data:', err);
     }
   };
@@ -208,7 +221,7 @@ const EntryPage: React.FC = () => {
     
     // Auto-fill details when account number changes
     if (name === 'accountNumber') {
-      const accountName = accounts[value];
+      const accountName = accounts[normalizeAccountNumber(value)];
       setJamaFormData(prev => ({
         ...prev,
         [name]: value,
@@ -233,7 +246,7 @@ const EntryPage: React.FC = () => {
     
     // Auto-fill details when account number changes
     if (name === 'accountNumber') {
-      const accountName = accounts[value];
+      const accountName = accounts[normalizeAccountNumber(value)];
       setNaveFormData(prev => ({
         ...prev,
         [name]: value,
@@ -491,7 +504,7 @@ const EntryPage: React.FC = () => {
     // Prepare data for Excel - Start directly with data entries
     const excelData: any[] = [];
 
-    Object.entries(entriesByDate).forEach(([date, dateEntries]) => {
+    Object.entries(entriesByDate).forEach(([, dateEntries]) => {
       const jamaEntriesForDate = dateEntries.filter(e => e.type === 'जमा');
       const naveEntriesForDate = dateEntries.filter(e => e.type === 'नावे');
       const maxEntries = Math.max(jamaEntriesForDate.length, naveEntriesForDate.length);
@@ -606,18 +619,6 @@ const EntryPage: React.FC = () => {
     acc[date].push(entry);
     return acc;
   }, {} as { [key: string]: Entry[] });
-
-  // Calculate totals
-  const jamaEntries = entries.filter(entry => entry.type === 'जमा');
-  const naveEntries = entries.filter(entry => entry.type === 'नावे');
-  const totalJama = jamaEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const totalNave = naveEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const balance = totalJama - totalNave;
-
-  // Format amount to show .00
-  const formatAmount = (amount: number) => {
-    return amount.toFixed(2);
-  };
 
   // Delete all entries
   const handleDeleteAllEntries = async () => {
@@ -1324,7 +1325,7 @@ const EntryPage: React.FC = () => {
                               {jamaEntry ? formatDate(jamaEntry.date) : ''}
                             </td>
                             <td className="p-1 marathi-font font-medium border border-black account-column text-center align-middle">
-                              {jamaEntry ? jamaEntry.accountNumber : ''}
+                              {jamaEntry ? resolveCurrentAccountNumber(jamaEntry.accountNumber, jamaEntry.details, accounts) : ''}
                             </td>
                             <td className="p-1 marathi-font border border-black receipt-column text-center align-middle">
                               {jamaEntry ? (jamaEntry.receiptNumber || '-') : ''}
@@ -1369,7 +1370,7 @@ const EntryPage: React.FC = () => {
                               {naveEntry ? formatDate(naveEntry.date) : ''}
                             </td>
                             <td className="p-1 marathi-font font-medium border border-black account-column text-center align-middle">
-                              {naveEntry ? naveEntry.accountNumber : ''}
+                              {naveEntry ? resolveCurrentAccountNumber(naveEntry.accountNumber, naveEntry.details, accounts) : ''}
                             </td>
                             <td className="p-1 marathi-font border border-black receipt-column text-center align-middle">
                               {naveEntry ? (naveEntry.receiptNumber || '-') : ''}

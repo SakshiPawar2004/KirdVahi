@@ -1,4 +1,6 @@
 // Local Storage service for Marathi Ledger Book
+import { accountNumbersMatch, normalizeAccountNumber, replaceAccountNamePrefix } from '../utils/accountUtils';
+
 export interface Account {
   id: number;
   khateNumber: string;
@@ -47,14 +49,16 @@ export const accountsStorage = {
   create: (account: Omit<Account, 'id' | 'createdAt'>): Account => {
     const accounts = accountsStorage.getAll();
     const nextId = parseInt(localStorage.getItem(NEXT_ACCOUNT_ID_KEY) || '1');
+    const normalizedAccountNumber = normalizeAccountNumber(account.khateNumber);
     
     // Check if account number already exists
-    if (accounts.some(acc => acc.khateNumber === account.khateNumber)) {
+    if (accounts.some(acc => accountNumbersMatch(acc.khateNumber, normalizedAccountNumber))) {
       throw new Error('Account number already exists');
     }
     
     const newAccount: Account = {
       ...account,
+      khateNumber: normalizedAccountNumber,
       id: nextId,
       createdAt: new Date().toISOString()
     };
@@ -74,8 +78,39 @@ export const accountsStorage = {
       throw new Error('Account not found');
     }
     
-    accounts[index] = { ...accounts[index], ...updates };
+    const currentAccount = accounts[index];
+    const updatedAccountNumber = updates.khateNumber ? normalizeAccountNumber(updates.khateNumber) : currentAccount.khateNumber;
+    const updatedAccountName = updates.name ? updates.name.trim() : currentAccount.name;
+
+    accounts[index] = {
+      ...currentAccount,
+      ...updates,
+      khateNumber: updatedAccountNumber,
+      name: updatedAccountName
+    };
     localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+
+    const accountNumberChanged = !accountNumbersMatch(currentAccount.khateNumber, updatedAccountNumber);
+    const accountNameChanged = updatedAccountName !== currentAccount.name;
+
+    if (accountNumberChanged || accountNameChanged) {
+      const entries = entriesStorage.getAll();
+      const updatedEntries = entries.map(entry => {
+        if (!accountNumbersMatch(entry.accountNumber, currentAccount.khateNumber)) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          accountNumber: accountNumberChanged ? updatedAccountNumber : entry.accountNumber,
+          details: accountNameChanged
+            ? replaceAccountNamePrefix(entry.details, currentAccount.name, updatedAccountName)
+            : entry.details
+        };
+      });
+
+      localStorage.setItem(ENTRIES_KEY, JSON.stringify(updatedEntries));
+    }
   },
 
   delete: (id: number): void => {
@@ -88,7 +123,7 @@ export const accountsStorage = {
     
     // Delete related entries first
     const entries = entriesStorage.getAll();
-    const filteredEntries = entries.filter(entry => entry.accountNumber !== account.khateNumber);
+    const filteredEntries = entries.filter(entry => !accountNumbersMatch(entry.accountNumber, account.khateNumber));
     localStorage.setItem(ENTRIES_KEY, JSON.stringify(filteredEntries));
     
     // Delete the account
@@ -107,21 +142,23 @@ export const entriesStorage = {
 
   getByAccount: (accountNumber: string): Entry[] => {
     const entries = entriesStorage.getAll();
-    return entries.filter(entry => entry.accountNumber === accountNumber);
+    return entries.filter(entry => accountNumbersMatch(entry.accountNumber, accountNumber));
   },
 
   create: (entry: Omit<Entry, 'id' | 'createdAt'>): Entry => {
     const entries = entriesStorage.getAll();
     const accounts = accountsStorage.getAll();
     const nextId = parseInt(localStorage.getItem(NEXT_ENTRY_ID_KEY) || '1');
+    const normalizedAccountNumber = normalizeAccountNumber(entry.accountNumber);
     
     // Verify account exists
-    if (!accounts.some(acc => acc.khateNumber === entry.accountNumber)) {
+    if (!accounts.some(acc => accountNumbersMatch(acc.khateNumber, normalizedAccountNumber))) {
       throw new Error('Account not found');
     }
     
     const newEntry: Entry = {
       ...entry,
+      accountNumber: normalizedAccountNumber,
       id: nextId,
       createdAt: new Date().toISOString()
     };

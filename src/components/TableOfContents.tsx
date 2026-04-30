@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { accountsFirebase, entriesFirebase, Account, Entry, handleFirebaseError } from '../services/firebaseService';
 import AdminHeader from './AdminHeader';
 import { formatDate, formatDateForFilename } from '../utils/dateUtils';
+import { normalizeAccountNumber } from '../utils/accountUtils';
 
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -84,8 +85,9 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
     }
     
     if (newAccountName.trim() && newAccountNumber.trim()) {
+      const normalizedNewAccountNumber = normalizeAccountNumber(newAccountNumber);
       // Check if account number already exists
-      const existingAccount = accounts.find(account => account.khateNumber === newAccountNumber.trim());
+      const existingAccount = accounts.find(account => normalizeAccountNumber(account.khateNumber) === normalizedNewAccountNumber);
       if (existingAccount) {
         alert('या खाते नंबरचे खाते आधीच अस्तित्वात आहे!');
         return;
@@ -97,7 +99,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
           return;
         }
         await accountsFirebase.create(selectedSchool.id, {
-          khateNumber: newAccountNumber.trim(),
+          khateNumber: normalizedNewAccountNumber,
           name: newAccountName.trim()
         });
         
@@ -129,10 +131,12 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
     }
     
     if (editingAccount && editAccountName.trim() && editAccountNumber.trim()) {
+      const normalizedEditAccountNumber = normalizeAccountNumber(editAccountNumber);
+      const normalizedEditAccountName = editAccountName.trim();
       // Check if the new account number already exists (only if it's different from current)
       const currentAccount = accounts.find(acc => acc.id === editingAccount);
-      if (currentAccount && editAccountNumber !== currentAccount.khateNumber) {
-        const existingAccount = accounts.find(acc => acc.khateNumber === editAccountNumber.trim() && acc.id !== editingAccount);
+      if (currentAccount && normalizedEditAccountNumber !== normalizeAccountNumber(currentAccount.khateNumber)) {
+        const existingAccount = accounts.find(acc => normalizeAccountNumber(acc.khateNumber) === normalizedEditAccountNumber && acc.id !== editingAccount);
         if (existingAccount) {
           alert('या खाते नंबरचे खाते आधीच अस्तित्वात आहे!');
           return;
@@ -145,15 +149,26 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
           return;
         }
         await accountsFirebase.update(selectedSchool.id, editingAccount, { 
-          name: editAccountName.trim(),
-          khateNumber: editAccountNumber.trim()
+          name: normalizedEditAccountName,
+          khateNumber: normalizedEditAccountNumber
         });
+        const previousAccount = currentAccount;
         setEditingAccount(null);
         setEditAccountName('');
         setEditAccountNumber('');
         loadAccounts(); // Reload accounts
         
         // Trigger a page refresh to update account names in other components
+        if (previousAccount) {
+          window.dispatchEvent(new CustomEvent('accountUpdated', {
+            detail: {
+              oldKhateNumber: normalizeAccountNumber(previousAccount.khateNumber),
+              newKhateNumber: normalizedEditAccountNumber,
+              oldName: previousAccount.name,
+              newName: normalizedEditAccountName
+            }
+          }));
+        }
         window.dispatchEvent(new Event('accountNameUpdated'));
       } catch (err) {
         alert('खाते अपडेट करताना त्रुटी: ' + handleFirebaseError(err));
@@ -242,7 +257,7 @@ const TableOfContents: React.FC<TableOfContentsProps> = ({ hideAdminHeader = fal
       });
 
       const accountNameMap: { [key: string]: string } = {};
-      accounts.forEach(acc => { accountNameMap[acc.khateNumber] = acc.name; });
+      accounts.forEach(acc => { accountNameMap[normalizeAccountNumber(acc.khateNumber)] = acc.name; });
 
       sortedAccounts.forEach((account, accountIndex) => {
         // Filter entries for this account
