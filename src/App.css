@@ -429,3 +429,23 @@
 .compact-layout td {
   padding: 4px;
 }
+
+/* App footer (screen) */
+.app-footer {
+  text-align: center;
+  color: #374151; /* gray-700 */
+  padding: 0.5rem 0;
+  font-size: 14px;
+}
+
+/* Footer print styles */
+@media print {
+  .app-footer {
+    display: none !important;
+  }
+
+  /* Hide app-level headers during print (most already use print:hidden) */
+  header {
+    display: none !important;
+  }
+}

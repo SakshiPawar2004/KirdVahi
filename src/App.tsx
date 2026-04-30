@@ -9,6 +9,7 @@ import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
+import Footer from './components/Footer';
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/admin" replace />} />
               </Route>
             </Routes>
+            <Footer />
           </div>
         </Router>
       </AuthProvider>
