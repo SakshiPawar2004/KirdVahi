@@ -480,15 +480,11 @@ const EntryPage: React.FC = () => {
       return;
     }
 
-    // Sort entries by date first, then by account number
+    // Sort entries by date only
     const sortedEntries = [...entries].sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      if (dateA !== dateB) return dateA - dateB;
-      // If dates are the same, sort by account number (numerically)
-      const accountA = parseInt(a.accountNumber) || 0;
-      const accountB = parseInt(b.accountNumber) || 0;
-      return accountA - accountB;
+      return dateA - dateB;
     });
     
     // Group entries by date
@@ -599,15 +595,11 @@ const EntryPage: React.FC = () => {
     XLSX.writeFile(wb, `किर्दवही_नोंदी_${formatDateForFilename(new Date())}.xlsx`);
   };
 
-  // Sort entries by date first, then by account number
+  // Sort entries by date only
   const sortedEntries = [...entries].sort((a, b) => {
     const dateA = new Date(a.date).getTime();
     const dateB = new Date(b.date).getTime();
-    if (dateA !== dateB) return dateA - dateB;
-    // If dates are the same, sort by account number (numerically)
-    const accountA = parseInt(a.accountNumber) || 0;
-    const accountB = parseInt(b.accountNumber) || 0;
-    return accountA - accountB;
+    return dateA - dateB;
   });
 
   // Group entries by date and create daily totals
