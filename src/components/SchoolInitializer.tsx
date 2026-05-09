@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { initializeSchools, updateSchoolNames, updateSchoolPasswords, defaultSchools } from '../utils/initializeSchools';
+import { initializeSchools, restoreMissingSchools, updateSchoolNames, updateSchoolPasswords, defaultSchools } from '../utils/initializeSchools';
 import { schoolService } from '../services/schoolService';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
@@ -7,13 +7,21 @@ const SchoolInitializer: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
     const [hasExistingSchools, setHasExistingSchools] = useState(false);
+    const [missingSchoolCount, setMissingSchoolCount] = useState(0);
     const [checkingSchools, setCheckingSchools] = useState(true);
 
     useEffect(() => {
         const checkExistingSchools = async () => {
             try {
                 const schools = await schoolService.getAll();
-                setHasExistingSchools(schools.length > 0);
+                // Check if all default schools exist by comparing adminIds
+                const defaultAdminIds = new Set(defaultSchools.map(s => s.adminId));
+                const existingAdminIds = new Set(schools.map(s => s.adminId));
+                
+                // Check if all default schools are in the database
+                const allSchoolsExist = Array.from(defaultAdminIds).every(id => existingAdminIds.has(id));
+                setHasExistingSchools(allSchoolsExist);
+                setMissingSchoolCount(Array.from(defaultAdminIds).filter(id => !existingAdminIds.has(id)).length);
             } catch (error) {
                 console.error('Error checking schools:', error);
             } finally {
@@ -24,7 +32,8 @@ const SchoolInitializer: React.FC = () => {
     }, []);
 
     const handleInitialize = async () => {
-        if (!window.confirm('This will create 6 schools in Firebase. Continue?')) {
+        const actionLabel = missingSchoolCount > 0 ? 'restore the missing schools in Firebase' : 'sync the default schools in Firebase';
+        if (!window.confirm(`This will ${actionLabel}. Continue?`)) {
             return;
         }
 
@@ -32,8 +41,13 @@ const SchoolInitializer: React.FC = () => {
         setStatus({ type: null, message: '' });
 
         try {
-            await initializeSchools();
-            setStatus({ type: 'success', message: 'Schools initialized successfully! Refreshing page...' });
+            if (missingSchoolCount > 0 && hasExistingSchools) {
+                await restoreMissingSchools();
+                setStatus({ type: 'success', message: 'Missing schools restored successfully! Refreshing page...' });
+            } else {
+                await initializeSchools();
+                setStatus({ type: 'success', message: 'Schools synchronized successfully! Refreshing page...' });
+            }
             setTimeout(() => {
                 window.location.reload();
             }, 2000);
@@ -100,17 +114,21 @@ const SchoolInitializer: React.FC = () => {
             <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                        {hasExistingSchools ? 'Update School Names' : 'Initialize Schools'}
+                        {hasExistingSchools ? (missingSchoolCount > 0 ? 'Restore Missing Schools' : 'Update School Names') : 'Initialize Schools'}
                     </h1>
                     <p className="text-gray-600">
                         {hasExistingSchools 
-                            ? 'Update existing school names to the new Marathi names.'
+                            ? (missingSchoolCount > 0
+                                ? `${missingSchoolCount} school(s) are missing from Firebase. Click below to restore them.`
+                                : 'Update existing school names to the new Marathi names.')
                             : 'No schools found. Click the button below to create 6 schools.'}
                     </p>
                 </div>
 
                 <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-700 mb-3">Schools to be created:</h2>
+                    <h2 className="text-lg font-semibold text-gray-700 mb-3">
+                        {missingSchoolCount > 0 ? 'Schools missing from Firebase:' : 'Schools to be created:'}
+                    </h2>
                     <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                         {defaultSchools.map((school, index) => (
                             <div key={index} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
@@ -169,10 +187,10 @@ const SchoolInitializer: React.FC = () => {
                                 {loading ? (
                                     <>
                                         <Loader2 className="w-5 h-5 animate-spin" />
-                                        Initializing...
+                                            {missingSchoolCount > 0 ? 'Restoring...' : 'Initializing...'}
                                     </>
                                 ) : (
-                                    'Initialize Schools'
+                                        missingSchoolCount > 0 ? 'Restore Missing Schools' : 'Initialize Schools'
                                 )}
                             </button>
                         )}
@@ -194,7 +212,7 @@ const SchoolInitializer: React.FC = () => {
 
                         {!hasExistingSchools && (
                             <p className="text-sm text-gray-500 mt-4 text-center">
-                                <strong>Note:</strong> After initialization, use Admin ID as both username and password.
+                                <strong>Note:</strong> After restore/init, use Admin ID as both username and password.
                                 <br />
                                 Example: Use the school's Admin ID for both Username and Password.
                             </p>

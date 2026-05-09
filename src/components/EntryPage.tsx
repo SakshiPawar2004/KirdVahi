@@ -65,10 +65,30 @@ const shouldShowAmount = (entry: Entry | undefined) => {
   return true;
 };
 
+const shouldShowEntryDate = (entry: Entry | undefined) => {
+  return Boolean(entry && !isDateOnlyEntry(entry));
+};
+
 type EntryRow = {
   jamaEntry?: Entry;
   naveEntry?: Entry;
   timestamp: number;
+};
+
+type EditSide = 'jama' | 'nave';
+
+type EditFormData = {
+  date: string;
+  accountNumber: string;
+  receiptNumber: string;
+  details: string;
+  amount: string;
+};
+
+type EditEntriesState = {
+  jamaEntry?: Entry;
+  naveEntry?: Entry;
+  rowDate: string;
 };
 
 const getEntryTimestamp = (entry: Entry): number => {
@@ -198,8 +218,15 @@ const EntryPage: React.FC = () => {
   const [showAddAccountForm, setShowAddAccountForm] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountNumber, setNewAccountNumber] = useState('');
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
-  const [editFormData, setEditFormData] = useState({
+  const [editingEntries, setEditingEntries] = useState<EditEntriesState | null>(null);
+  const [editJamaFormData, setEditJamaFormData] = useState<EditFormData>({
+    date: '',
+    accountNumber: '',
+    receiptNumber: '',
+    details: '',
+    amount: ''
+  });
+  const [editNaveFormData, setEditNaveFormData] = useState<EditFormData>({
     date: '',
     accountNumber: '',
     receiptNumber: '',
@@ -545,46 +572,68 @@ const EntryPage: React.FC = () => {
     });
   };
 
-  const handleEditEntry = (entry: Entry) => {
-    setEditingEntry(entry);
-    setEditFormData({
-      date: entry.date,
-      accountNumber: entry.accountNumber,
-      receiptNumber: entry.receiptNumber || '',
-      details: entry.details,
-      amount: entry.amount.toString()
-    });
+  const createEditFormData = (entry?: Entry, fallbackDate = ''): EditFormData => ({
+    date: entry?.date || fallbackDate || '',
+    accountNumber: entry?.accountNumber || '',
+    receiptNumber: entry?.receiptNumber || '',
+    details: entry?.details || '',
+    amount: entry ? entry.amount.toString() : ''
+  });
+
+  const findEntryPairForEdit = (entry: Entry): EditEntriesState => {
+    if (entry.groupId) {
+      const groupedEntries = entries.filter(candidate => candidate.groupId === entry.groupId);
+      return {
+        jamaEntry: groupedEntries.find(candidate => candidate.type === 'जमा'),
+        naveEntry: groupedEntries.find(candidate => candidate.type === 'नावे'),
+        rowDate: entry.date
+      };
+    }
+
+    const sameDateEntries = entries.filter(candidate => candidate.date === entry.date);
+    const counterpart = sameDateEntries.find(candidate => candidate.type !== entry.type && Math.abs(getEntryTimestamp(candidate) - getEntryTimestamp(entry)) <= 2000);
+
+    return entry.type === 'जमा'
+      ? { jamaEntry: entry, naveEntry: counterpart, rowDate: entry.date }
+      : { jamaEntry: counterpart, naveEntry: entry, rowDate: entry.date };
   };
 
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleEditEntry = (entry: Entry) => {
+    const pair = findEntryPairForEdit(entry);
+    setEditingEntries(pair);
+    setEditJamaFormData(createEditFormData(pair.jamaEntry, pair.rowDate));
+    setEditNaveFormData(createEditFormData(pair.naveEntry, pair.rowDate));
+  };
+
+  const handleEditInputChange = (side: EditSide, e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
-    // Auto-fill details when account number changes
+    const setFormData = side === 'jama' ? setEditJamaFormData : setEditNaveFormData;
+
     if (name === 'accountNumber') {
-      const accountName = accounts[value];
-      setEditFormData(prev => ({
+      const accountName = accounts[normalizeAccountNumber(value)];
+      setFormData(prev => ({
         ...prev,
         [name]: value,
         details: accountName ? `${accountName}\n` : ''
       }));
-    } else if (name === 'amount') {
-      // Handle amount formatting on blur
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
     } else {
-      setEditFormData(prev => ({
+      setFormData(prev => ({
         ...prev,
         [name]: value
       }));
     }
   };
 
-  const handleEditAmountBlur = (value: string) => {
-    if (value && !isNaN(parseFloat(value))) {
-      const formattedAmount = formatAmountInput(value);
-      setEditFormData(prev => ({ ...prev, amount: formattedAmount }));
+  const handleEditAmountBlur = (side: EditSide, value: string) => {
+    if (!value || isNaN(parseFloat(value))) {
+      return;
+    }
+
+    const formattedAmount = formatAmountInput(value);
+    if (side === 'jama') {
+      setEditJamaFormData(prev => ({ ...prev, amount: formattedAmount }));
+    } else {
+      setEditNaveFormData(prev => ({ ...prev, amount: formattedAmount }));
     }
   };
 
@@ -594,45 +643,104 @@ const EntryPage: React.FC = () => {
       alert('इंटरनेट कनेक्शन नाही! कृपया ऑनलाइन येऊन पुन्हा प्रयत्न करा.');
       return;
     }
-    
-    if (!selectedSchool) return;
-    if (editingEntry && editFormData.date) {
-      try {
-        const normalizedAccountNumber = normalizeAccountNumber(editFormData.accountNumber);
-        const parsedAmount = editFormData.amount.trim() === '' ? 0 : parseFloat(editFormData.amount);
 
-        if (editFormData.amount.trim() !== '' && isNaN(parsedAmount)) {
-          alert('कृपया योग्य रक्कम टाका.');
-          return;
-        }
+    if (!selectedSchool || !editingEntries) return;
 
-        await entriesFirebase.update(selectedSchool.id, editingEntry.id!, {
-          date: editFormData.date,
-          accountNumber: normalizedAccountNumber,
-          receiptNumber: editFormData.receiptNumber || '',
-          details: editFormData.details || '',
-          amount: parsedAmount
-        });
-        
-        setEditingEntry(null);
-        setEditFormData({
-          date: '',
-          accountNumber: '',
-          receiptNumber: '',
-          details: '',
-          amount: ''
-        });
-        
-        loadData(); // Reload entries
-      } catch (err) {
-        alert('नोंद संपादित करताना त्रुटी: ' + handleFirebaseError(err));
+    const hasSideData = (formData: EditFormData, existingEntry?: Entry) => {
+      if (existingEntry) {
+        return true;
       }
+
+      return Boolean(
+        formData.date.trim() ||
+        formData.accountNumber.trim() ||
+        formData.receiptNumber.trim() ||
+        formData.details.trim() ||
+        formData.amount.trim()
+      );
+    };
+
+    const normalizeEditPayload = (formData: EditFormData, type: Entry['type']) => {
+      const normalizedAccountNumber = normalizeAccountNumber(formData.accountNumber);
+      const parsedAmount = formData.amount.trim() === '' ? 0 : parseFloat(formData.amount);
+
+      if (formData.amount.trim() !== '' && isNaN(parsedAmount)) {
+        throw new Error('कृपया योग्य रक्कम टाका.');
+      }
+
+      return {
+        date: formData.date || editingEntries.rowDate,
+        accountNumber: normalizedAccountNumber,
+        receiptNumber: formData.receiptNumber || '',
+        details: formData.details || '',
+        amount: parsedAmount,
+        type,
+        groupId: editingEntries.jamaEntry?.groupId || editingEntries.naveEntry?.groupId || `edit-${Date.now()}`
+      };
+    };
+
+    try {
+      const updates: Promise<void>[] = [];
+      const groupId = editingEntries.jamaEntry?.groupId || editingEntries.naveEntry?.groupId || `edit-${Date.now()}`;
+
+      if (hasSideData(editJamaFormData, editingEntries.jamaEntry)) {
+        if (editingEntries.jamaEntry) {
+          updates.push(entriesFirebase.update(selectedSchool.id, editingEntries.jamaEntry.id!, {
+            ...normalizeEditPayload(editJamaFormData, 'जमा'),
+            groupId
+          }));
+        } else {
+          updates.push(entriesFirebase.create(selectedSchool.id, normalizeEditPayload(editJamaFormData, 'जमा')).then(() => undefined));
+        }
+      }
+
+      if (hasSideData(editNaveFormData, editingEntries.naveEntry)) {
+        if (editingEntries.naveEntry) {
+          updates.push(entriesFirebase.update(selectedSchool.id, editingEntries.naveEntry.id!, {
+            ...normalizeEditPayload(editNaveFormData, 'नावे'),
+            groupId
+          }));
+        } else {
+          updates.push(entriesFirebase.create(selectedSchool.id, normalizeEditPayload(editNaveFormData, 'नावे')).then(() => undefined));
+        }
+      }
+
+      if (updates.length === 0) {
+        return;
+      }
+
+      await Promise.all(updates);
+      setEditingEntries(null);
+      setEditJamaFormData({
+        date: '',
+        accountNumber: '',
+        receiptNumber: '',
+        details: '',
+        amount: ''
+      });
+      setEditNaveFormData({
+        date: '',
+        accountNumber: '',
+        receiptNumber: '',
+        details: '',
+        amount: ''
+      });
+      loadData();
+    } catch (err) {
+      alert('नोंद संपादित करताना त्रुटी: ' + handleFirebaseError(err));
     }
   };
 
   const handleCancelEdit = () => {
-    setEditingEntry(null);
-    setEditFormData({
+    setEditingEntries(null);
+    setEditJamaFormData({
+      date: '',
+      accountNumber: '',
+      receiptNumber: '',
+      details: '',
+      amount: ''
+    });
+    setEditNaveFormData({
       date: '',
       accountNumber: '',
       receiptNumber: '',
@@ -641,25 +749,26 @@ const EntryPage: React.FC = () => {
     });
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const handleDeleteEntry = async (entryId: string) => {
     if (!isOnline) {
       alert('इंटरनेट कनेक्शन नाही! कृपया ऑनलाइन येऊन पुन्हा प्रयत्न करा.');
       return;
     }
-    
+
     if (!selectedSchool) return;
-    if (confirm('आपण हि नोंद काढू इच्छिता?.')) {
+
+    if (confirm('आपण हि नोंद काढू इच्छिता?')) {
       try {
         await entriesFirebase.delete(selectedSchool.id, entryId);
-        loadData(); // Reload entries
+        loadData();
       } catch (err) {
         alert('नोंद हटवताना त्रुटी: ' + handleFirebaseError(err));
       }
     }
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   const handleExportToExcel = () => {
@@ -709,7 +818,7 @@ const EntryPage: React.FC = () => {
             return jamaEntry.details;
           })() : '',
           'रक्कम': shouldShowAmount(jamaEntry) ? jamaEntry!.amount.toFixed(2) : '',
-          'तारीख ': naveEntry ? formatDate(naveEntry.date) : '',
+          'तारीख ': shouldShowEntryDate(naveEntry) ? formatDate(naveEntry!.date) : '',
           'खाते नं. ': naveEntry ? naveEntry.accountNumber : '',
           'पावती नं. ': naveEntry ? (naveEntry.receiptNumber || '') : '',
           'नावेचा तपशील': naveEntry ? (() => {
@@ -1215,14 +1324,15 @@ const EntryPage: React.FC = () => {
         )}
 
         {/* Edit Entry Modal */}
-        {editingEntry && (
+        {editingEntries && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 print:hidden">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-blue-800 marathi-font">
-                    नोंद संपादित करा - {editingEntry.type}
-                  </h2>
+                  <div>
+                    <h2 className="text-xl font-bold text-blue-800 marathi-font">नोंद संपादित करा</h2>
+                    <p className="text-sm text-gray-500 marathi-font">जमा आणि नावे वेगळे संपादित करा</p>
+                  </div>
                   <button
                     onClick={handleCancelEdit}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1232,134 +1342,67 @@ const EntryPage: React.FC = () => {
                 </div>
               </div>
 
-              <form onSubmit={handleSaveEdit} className={`p-6 ${
-                editingEntry.type === 'जमा' ? 'bg-green-50' : 'bg-red-50'
-              }`}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 marathi-font ${
-                      editingEntry.type === 'जमा' ? 'text-green-800' : 'text-red-800'
-                    }`}>
-                      तारीख *
-                    </label>
-                    <input
-                      type="date"
-                      name="date"
-                      value={editFormData.date}
-                      onChange={handleEditInputChange}
-                      required
-                      disabled={!isOnline}
-                      className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 ${
-                        editingEntry.type === 'जमा' 
-                          ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
-                          : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      } ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 marathi-font ${
-                      editingEntry.type === 'जमा' ? 'text-green-800' : 'text-red-800'
-                    }`}>
-                      खाते नंबर
-                    </label>
-                    <input
-                      type="text"
-                      name="accountNumber"
-                      value={editFormData.accountNumber}
-                      onChange={handleEditInputChange}
-                      disabled={!isOnline}
-                      placeholder="खाते नंबर"
-                      className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font ${
-                        editingEntry.type === 'जमा' 
-                          ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
-                          : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      } ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 marathi-font ${
-                      editingEntry.type === 'जमा' ? 'text-green-800' : 'text-red-800'
-                    }`}>
-                      पावती नंबर
-                    </label>
-                    <input
-                      type="text"
-                      name="receiptNumber"
-                      value={editFormData.receiptNumber}
-                      onChange={handleEditInputChange}
-                      disabled={!isOnline}
-                      placeholder="पावती नंबर"
-                      className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font ${
-                        editingEntry.type === 'जमा' 
-                          ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
-                          : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      } ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-2 marathi-font ${
-                      editingEntry.type === 'जमा' ? 'text-green-800' : 'text-red-800'
-                    }`}>
-                      रक्कम
-                    </label>
-                    <input
-                      type="number"
-                      name="amount"
-                      value={editFormData.amount}
-                      onChange={handleEditInputChange}
-                      onBlur={(e) => handleEditAmountBlur(e.target.value)}
-                      disabled={!isOnline}
-                      placeholder="0.00"
-                      step="0.01"
-                      min="0"
-                      className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 english-font ${
-                        editingEntry.type === 'जमा' 
-                          ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
-                          : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      } ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    />
-                  </div>
+              <form onSubmit={handleSaveEdit} className="p-6 bg-gray-50">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <section className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-green-800 marathi-font mb-4">जमा नोंद</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-green-800">तारीख *</label>
+                        <input type="date" name="date" value={editJamaFormData.date} onChange={(e) => handleEditInputChange('jama', e)} required disabled={!isOnline} className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 border-green-300 focus:ring-green-500 focus:border-green-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-green-800">खाते नंबर</label>
+                        <input type="text" name="accountNumber" value={editJamaFormData.accountNumber} onChange={(e) => handleEditInputChange('jama', e)} disabled={!isOnline} placeholder="खाते नंबर" className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font border-green-300 focus:ring-green-500 focus:border-green-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-green-800">पावती नंबर</label>
+                        <input type="text" name="receiptNumber" value={editJamaFormData.receiptNumber} onChange={(e) => handleEditInputChange('jama', e)} disabled={!isOnline} placeholder="पावती नंबर" className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font border-green-300 focus:ring-green-500 focus:border-green-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-green-800">रक्कम</label>
+                        <input type="number" name="amount" value={editJamaFormData.amount} onChange={(e) => handleEditInputChange('jama', e)} onBlur={(e) => handleEditAmountBlur('jama', e.target.value)} disabled={!isOnline} placeholder="0.00" step="0.01" min="0" className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 english-font border-green-300 focus:ring-green-500 focus:border-green-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium mb-2 marathi-font text-green-800">तपशील</label>
+                      <textarea name="details" value={editJamaFormData.details} onChange={(e) => handleEditInputChange('jama', e)} disabled={!isOnline} placeholder="तपशील लिहा..." rows={4} className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font resize-vertical border-green-300 focus:ring-green-500 focus:border-green-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                    </div>
+                  </section>
+
+                  <section className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <h3 className="text-lg font-bold text-red-800 marathi-font mb-4">नावे नोंद</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-red-800">तारीख *</label>
+                        <input type="date" name="date" value={editNaveFormData.date} onChange={(e) => handleEditInputChange('nave', e)} required disabled={!isOnline} className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 border-red-300 focus:ring-red-500 focus:border-red-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-red-800">खाते नंबर</label>
+                        <input type="text" name="accountNumber" value={editNaveFormData.accountNumber} onChange={(e) => handleEditInputChange('nave', e)} disabled={!isOnline} placeholder="खाते नंबर" className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font border-red-300 focus:ring-red-500 focus:border-red-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-red-800">पावती नंबर</label>
+                        <input type="text" name="receiptNumber" value={editNaveFormData.receiptNumber} onChange={(e) => handleEditInputChange('nave', e)} disabled={!isOnline} placeholder="पावती नंबर" className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font border-red-300 focus:ring-red-500 focus:border-red-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2 marathi-font text-red-800">रक्कम</label>
+                        <input type="number" name="amount" value={editNaveFormData.amount} onChange={(e) => handleEditInputChange('nave', e)} onBlur={(e) => handleEditAmountBlur('nave', e.target.value)} disabled={!isOnline} placeholder="0.00" step="0.01" min="0" className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 english-font border-red-300 focus:ring-red-500 focus:border-red-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                      </div>
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium mb-2 marathi-font text-red-800">तपशील</label>
+                      <textarea name="details" value={editNaveFormData.details} onChange={(e) => handleEditInputChange('nave', e)} disabled={!isOnline} placeholder="तपशील लिहा..." rows={4} className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font resize-vertical border-red-300 focus:ring-red-500 focus:border-red-500 ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                    </div>
+                  </section>
                 </div>
-                
-                <div className="mb-6">
-                  <label className={`block text-sm font-medium mb-2 marathi-font ${
-                    editingEntry.type === 'जमा' ? 'text-green-800' : 'text-red-800'
-                  }`}>
-                    तपशील
-                  </label>
-                  <textarea
-                    name="details"
-                    value={editFormData.details}
-                    onChange={handleEditInputChange}
-                    disabled={!isOnline}
-                    placeholder="तपशील लिहा..."
-                    rows={4}
-                    className={`w-full p-3 text-sm border rounded-lg focus:ring-2 focus:ring-opacity-50 marathi-font resize-vertical ${
-                      editingEntry.type === 'जमा' 
-                        ? 'border-green-300 focus:ring-green-500 focus:border-green-500' 
-                        : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    } ${!isOnline ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                  />
-                </div>
-                
-                <div className="flex flex-wrap gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium english-font transition-colors flex items-center gap-2"
-                  >
+
+                <div className="flex flex-wrap gap-3 justify-end mt-6">
+                  <button type="button" onClick={handleCancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium english-font transition-colors flex items-center gap-2">
                     <X className="w-4 h-4" />
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={!isOnline}
-                    className={`px-6 py-3 rounded-lg font-medium english-font transition-colors flex items-center gap-2 ${
-                      isOnline 
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                        : 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    }`}
-                  >
+                  <button type="submit" disabled={!isOnline} className={`px-6 py-3 rounded-lg font-medium english-font transition-colors flex items-center gap-2 ${isOnline ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-400 text-gray-600 cursor-not-allowed'}`}>
                     <Save className="w-4 h-4" />
                     Save Changes
                   </button>
@@ -1454,7 +1497,7 @@ const EntryPage: React.FC = () => {
                           <tr key={`${date}-${i}`} className="hover:bg-amber-50 transition-colors border-b print:hover:bg-transparent print:bg-white print-page-break-inside-avoid">
                             {/* जमा side columns */}
                             <td className="p-1 english-font border border-black date-column text-center align-middle">
-                              {jamaEntry ? formatDate(jamaEntry.date) : ''}
+                              {shouldShowEntryDate(jamaEntry) ? formatDate(jamaEntry!.date) : ''}
                             </td>
                             <td className="p-1 marathi-font font-medium border border-black account-column text-center align-middle">
                               {jamaEntry ? resolveCurrentAccountNumber(jamaEntry.accountNumber, jamaEntry.details, accounts) : ''}
@@ -1527,7 +1570,7 @@ const EntryPage: React.FC = () => {
                             
                             {/* नावे side columns */}
                             <td className="p-1 english-font border border-black date-column text-center align-middle">
-                              {naveEntry ? formatDate(naveEntry.date) : ''}
+                              {shouldShowEntryDate(naveEntry) ? formatDate(naveEntry!.date) : ''}
                             </td>
                             <td className="p-1 marathi-font font-medium border border-black account-column text-center align-middle">
                               {naveEntry ? resolveCurrentAccountNumber(naveEntry.accountNumber, naveEntry.details, accounts) : ''}

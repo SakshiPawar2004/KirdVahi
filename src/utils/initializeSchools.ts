@@ -44,21 +44,79 @@ export async function initializeSchools(): Promise<void> {
     try {
         console.log('Initializing schools...');
         
+        // Get all existing schools
+        const existingSchoolsSnapshot = await getDocs(collection(db, 'schools'));
+        const existingSchools = new Map<string, string>();
+        
+        existingSchoolsSnapshot.forEach((doc) => {
+            const data = doc.data();
+            existingSchools.set(data.adminId, doc.id);
+        });
+        
+        let createdCount = 0;
+        let skippedCount = 0;
+        
         for (const school of defaultSchools) {
             try {
+                // Check if school with this adminId already exists
+                if (existingSchools.has(school.adminId)) {
+                    console.log(`⏭ Skipping: ${school.name} (already exists with ID: ${existingSchools.get(school.adminId)})`);
+                    skippedCount++;
+                    continue;
+                }
+                
                 const docRef = await addDoc(collection(db, 'schools'), school);
                 console.log(`✓ Created: ${school.name} (ID: ${docRef.id})`);
+                createdCount++;
             } catch (error) {
                 console.error(`✗ Error creating ${school.name}:`, error);
                 throw error;
             }
         }
         
-        console.log('All schools initialized successfully!');
-        alert('All schools initialized successfully! Please refresh the page.');
+        console.log(`Initialized successfully! Created: ${createdCount}, Skipped (already exist): ${skippedCount}`);
+        alert(`Schools synced! Created: ${createdCount}, Already existed: ${skippedCount}. Please refresh the page.`);
     } catch (error) {
         console.error('Error initializing schools:', error);
         alert('Error initializing schools. Check console for details.');
+        throw error;
+    }
+}
+
+export async function restoreMissingSchools(): Promise<void> {
+    if (!db) {
+        throw new Error('Firebase is not initialized. Please check your .env file and Firebase configuration.');
+    }
+
+    try {
+        const schoolsSnapshot = await getDocs(collection(db, 'schools'));
+        const existingAdminIds = new Set<string>();
+
+        schoolsSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.adminId) {
+                existingAdminIds.add(String(data.adminId));
+            }
+        });
+
+        const missingSchools = defaultSchools.filter((school) => !existingAdminIds.has(school.adminId));
+
+        if (missingSchools.length === 0) {
+            alert('No missing schools found. Firebase is already in sync.');
+            return;
+        }
+
+        let restoredCount = 0;
+        for (const school of missingSchools) {
+            await addDoc(collection(db, 'schools'), school);
+            restoredCount++;
+            console.log(`✓ Restored missing school: ${school.name}`);
+        }
+
+        alert(`Restored ${restoredCount} missing school(s). Please refresh the page.`);
+    } catch (error) {
+        console.error('Error restoring missing schools:', error);
+        alert('Error restoring missing schools. Check console for details.');
         throw error;
     }
 }
@@ -194,6 +252,7 @@ export async function keepOnlyMainSchools(): Promise<void> {
 // Make it available globally for browser console
 if (typeof window !== 'undefined') {
     (window as any).initializeSchools = initializeSchools;
+    (window as any).restoreMissingSchools = restoreMissingSchools;
     (window as any).updateSchoolNames = updateSchoolNames;
     (window as any).updateSchoolPasswords = updateSchoolPasswords;
     (window as any).keepOnlyMainSchools = keepOnlyMainSchools;

@@ -3,6 +3,7 @@ import { useSchool, School } from '../contexts/SchoolContext';
 import { useNavigate } from 'react-router-dom';
 import { School as SchoolIcon, Building2, Loader2, Lock, X } from 'lucide-react';
 import { schoolService } from '../services/schoolService';
+import { defaultSchools, initializeSchools, restoreMissingSchools } from '../utils/initializeSchools';
 import SchoolInitializer from './SchoolInitializer';
 
 const SchoolSelection: React.FC = () => {
@@ -13,6 +14,8 @@ const SchoolSelection: React.FC = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [missingSchoolCount, setMissingSchoolCount] = useState(0);
+  const [repairLoading, setRepairLoading] = useState(false);
   const { selectSchool, authenticateSchool } = useSchool();
   const navigate = useNavigate();
 
@@ -25,17 +28,46 @@ const SchoolSelection: React.FC = () => {
       setLoading(true);
       setError(null);
       const schoolsData = await schoolService.getAll();
+      const defaultAdminIds = new Set(defaultSchools.map(s => s.adminId));
+      const existingAdminIds = new Set(schoolsData.map(s => s.adminId));
+      setMissingSchoolCount(Array.from(defaultAdminIds).filter(id => !existingAdminIds.has(id)).length);
+
+      if (schoolsData.length === 0) {
+        console.log('No schools found in Firebase. Initialization required.');
+      }
       setSchools(schoolsData);
     } catch (err: any) {
       console.error('Error loading schools:', err);
       // Check if it's a Firebase configuration error
-      if (err?.message?.includes('Firebase') || err?.code === 'failed-precondition') {
+      if (err?.message?.includes('Firebase') || err?.code === 'failed-precondition' || err?.message?.includes('not initialized')) {
         setError('Firebase कॉन्फिगरेशन त्रुटी. कृपया .env फाइल तपासा आणि Firebase सेटिंग्ज व्हेरिफाई करा.');
+      } else if (err?.code === 'permission-denied') {
+        setError('Firebase परमिशन त्रुटी. कृपया Firebase सिक्यूरिटी नियम तपासा.');
       } else {
         setError('शाळा लोड करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRestoreMissingSchools = async () => {
+    try {
+      setRepairLoading(true);
+      setError(null);
+
+      if (missingSchoolCount > 0) {
+        await restoreMissingSchools();
+      } else {
+        await initializeSchools();
+      }
+
+      await loadSchools();
+    } catch (err) {
+      console.error('Error restoring schools:', err);
+      setError('शाळा restore करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.');
+    } finally {
+      setRepairLoading(false);
     }
   };
 
@@ -156,6 +188,29 @@ const SchoolSelection: React.FC = () => {
       
       {/* Content container with backdrop blur for better readability */}
       <div className="relative z-10 max-w-4xl mx-auto">
+        {missingSchoolCount > 0 && (
+          <div className="mb-6 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg p-4 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold">Firebase मध्ये {missingSchoolCount} शाळा missing आहेत.</p>
+              <p className="text-sm">Deleted school परत आणण्यासाठी restore करा.</p>
+            </div>
+            <button
+              onClick={handleRestoreMissingSchools}
+              disabled={repairLoading}
+              className="bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
+            >
+              {repairLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Restoring...
+                </>
+              ) : (
+                'Restore Missing Schools'
+              )}
+            </button>
+          </div>
+        )}
+
         <div className="text-center mb-8">
           <div className="bg-white bg-opacity-90 backdrop-blur-sm w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Building2 className="w-10 h-10 text-amber-600" />
