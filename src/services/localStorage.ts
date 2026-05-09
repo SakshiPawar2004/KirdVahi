@@ -16,6 +16,7 @@ export interface Entry {
   details: string;
   amount: number;
   type: 'जमा' | 'नावे';
+  groupId?: string;
   createdAt: string;
 }
 

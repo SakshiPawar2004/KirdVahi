@@ -65,6 +65,116 @@ const shouldShowAmount = (entry: Entry | undefined) => {
   return true;
 };
 
+type EntryRow = {
+  jamaEntry?: Entry;
+  naveEntry?: Entry;
+  timestamp: number;
+};
+
+const getEntryTimestamp = (entry: Entry): number => {
+  if (!entry.createdAt) {
+    return 0;
+  }
+
+  if (entry.createdAt instanceof Date) {
+    return entry.createdAt.getTime();
+  }
+
+  if (typeof (entry.createdAt as any).toDate === 'function') {
+    return (entry.createdAt as any).toDate().getTime();
+  }
+
+  return 0;
+};
+
+const buildEntryRows = (dateEntries: Entry[]): EntryRow[] => {
+  const groupedEntries = dateEntries.filter(entry => entry.groupId);
+  const ungroupedEntries = dateEntries.filter(entry => !entry.groupId);
+  const overflowRows: EntryRow[] = [];
+
+  const groupedRowsMap = new Map<string, EntryRow>();
+  const groupedRowsOrder: string[] = [];
+
+  groupedEntries.forEach((entry) => {
+    const groupKey = entry.groupId as string;
+    if (!groupedRowsMap.has(groupKey)) {
+      groupedRowsMap.set(groupKey, {
+        timestamp: getEntryTimestamp(entry)
+      });
+      groupedRowsOrder.push(groupKey);
+    }
+
+    const row = groupedRowsMap.get(groupKey)!;
+    if (entry.type === 'जमा' && !row.jamaEntry) {
+      row.jamaEntry = entry;
+    } else if (entry.type === 'नावे' && !row.naveEntry) {
+      row.naveEntry = entry;
+    } else {
+      // If a group accidentally has duplicate same-type entries, place on a new row.
+      overflowRows.push({
+        jamaEntry: entry.type === 'जमा' ? entry : undefined,
+        naveEntry: entry.type === 'नावे' ? entry : undefined,
+        timestamp: getEntryTimestamp(entry)
+      });
+    }
+  });
+
+  const groupedRows: EntryRow[] = groupedRowsOrder.map(key => groupedRowsMap.get(key)!).filter(Boolean);
+
+  const sortedByTime = [...ungroupedEntries].sort((a, b) => {
+    const timeA = getEntryTimestamp(a);
+    const timeB = getEntryTimestamp(b);
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    return (a.id || '').localeCompare(b.id || '');
+  });
+
+  const rows: EntryRow[] = [...groupedRows, ...overflowRows];
+
+  // Entries saved together are written very close in time. Keep those on one row.
+  sortedByTime.forEach((entry) => {
+    const currentTime = getEntryTimestamp(entry);
+    const matchingRow = rows.find((row) => {
+      const rowHasSameType = entry.type === 'जमा' ? Boolean(row.jamaEntry) : Boolean(row.naveEntry);
+      if (rowHasSameType) {
+        return false;
+      }
+
+      if (row.timestamp === 0 || currentTime === 0) {
+        return false;
+      }
+
+      return Math.abs(row.timestamp - currentTime) <= 2000;
+    });
+
+    if (matchingRow) {
+      if (entry.type === 'जमा') {
+        matchingRow.jamaEntry = entry;
+      } else {
+        matchingRow.naveEntry = entry;
+      }
+      return;
+    }
+
+    rows.push({
+      jamaEntry: entry.type === 'जमा' ? entry : undefined,
+      naveEntry: entry.type === 'नावे' ? entry : undefined,
+      timestamp: currentTime
+    });
+  });
+
+  rows.sort((left, right) => {
+    if (left.timestamp === right.timestamp) return 0;
+    if (left.timestamp === 0) return 1;
+    if (right.timestamp === 0) return -1;
+    return left.timestamp - right.timestamp;
+  });
+
+  return rows;
+};
+
 const EntryPage: React.FC = () => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [accounts, setAccounts] = useState<{ [key: string]: string }>({});
@@ -348,6 +458,7 @@ const EntryPage: React.FC = () => {
 
     const shouldCreateJama = hasAnySideData(jamaFormData);
     const shouldCreateNave = hasAnySideData(naveFormData);
+    const submissionGroupId = `grp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     try {
       const createOperations: Promise<Entry>[] = [];
@@ -360,7 +471,8 @@ const EntryPage: React.FC = () => {
             receiptNumber: jamaFormData.receiptNumber || '',
             details: jamaFormData.details || '',
             amount: jamaAmount,
-            type: 'जमा'
+            type: 'जमा',
+            groupId: submissionGroupId
           })
         );
       }
@@ -373,7 +485,8 @@ const EntryPage: React.FC = () => {
             receiptNumber: naveFormData.receiptNumber || '',
             details: naveFormData.details || '',
             amount: naveAmount,
-            type: 'नावे'
+            type: 'नावे',
+            groupId: submissionGroupId
           })
         );
       }
@@ -387,7 +500,8 @@ const EntryPage: React.FC = () => {
             receiptNumber: '',
             details: '',
             amount: 0,
-            type: 'जमा'
+            type: 'जमा',
+            groupId: submissionGroupId
           })
         );
       }
@@ -575,15 +689,13 @@ const EntryPage: React.FC = () => {
     const excelData: any[] = [];
 
     Object.entries(entriesByDate).forEach(([, dateEntries]) => {
-      const jamaEntriesForDate = dateEntries.filter(e => e.type === 'जमा');
-      const naveEntriesForDate = dateEntries.filter(e => e.type === 'नावे');
-      const maxEntries = Math.max(jamaEntriesForDate.length, naveEntriesForDate.length);
-      
+      const entryRows = buildEntryRows(dateEntries);
+
       // Add entry rows for this date
-      for (let i = 0; i < maxEntries; i++) {
-        const jamaEntry = jamaEntriesForDate[i];
-        const naveEntry = naveEntriesForDate[i];
-        
+      for (const row of entryRows) {
+        const jamaEntry = row.jamaEntry;
+        const naveEntry = row.naveEntry;
+
         excelData.push({
           'तारीख': jamaEntry ? formatDate(jamaEntry.date) : '',
           'खाते नं.': jamaEntry ? jamaEntry.accountNumber : '',
@@ -613,6 +725,8 @@ const EntryPage: React.FC = () => {
       }
       
       // Add daily totals
+      const jamaEntriesForDate = dateEntries.filter(e => e.type === 'जमा');
+      const naveEntriesForDate = dateEntries.filter(e => e.type === 'नावे');
       const dailyJamaTotal = jamaEntriesForDate.reduce((sum, entry) => sum + (hasEntryAmount(entry.amount) ? entry.amount : 0), 0);
       const dailyNaveTotal = naveEntriesForDate.reduce((sum, entry) => sum + (hasEntryAmount(entry.amount) ? entry.amount : 0), 0);
       
@@ -1322,10 +1436,9 @@ const EntryPage: React.FC = () => {
                   </tr>
                 </thead>
                 {Object.entries(entriesByDate).map(([date, dateEntries], dateIndex, dateArray) => {
-                  // Create rows where जमा and नावे entries are displayed side by side
+                  const entryRows = buildEntryRows(dateEntries);
                   const jamaEntriesForDate = dateEntries.filter(e => e.type === 'जमा');
                   const naveEntriesForDate = dateEntries.filter(e => e.type === 'नावे');
-                  const maxEntries = Math.max(jamaEntriesForDate.length, naveEntriesForDate.length);
                   
                   // Check if this is the last date group
                   const isLastDate = dateIndex === dateArray.length - 1;
@@ -1333,9 +1446,9 @@ const EntryPage: React.FC = () => {
                   return (
                     <tbody key={date} className={`print-date-group ${!isLastDate ? 'print-page-break-after' : ''}`}>
                       {/* Add entry rows for this date */}
-                      {Array.from({ length: maxEntries }, (_, i) => {
-                        const jamaEntry = jamaEntriesForDate[i];
-                        const naveEntry = naveEntriesForDate[i];
+                      {entryRows.map((row, i) => {
+                        const jamaEntry = row.jamaEntry;
+                        const naveEntry = row.naveEntry;
                         
                         return (
                           <tr key={`${date}-${i}`} className="hover:bg-amber-50 transition-colors border-b print:hover:bg-transparent print:bg-white print-page-break-inside-avoid">
